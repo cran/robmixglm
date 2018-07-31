@@ -1,0 +1,12 @@
+Changes in robmixglm version 1.0-2
+
+  o added extra sentences in description
+
+  o changed dontrun to donttest
+
+  o changed several examples to allow running as part of check
+
+Changes in robmixglm version 1.0-1
+
+  o first release
+
