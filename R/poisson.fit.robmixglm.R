@@ -155,6 +155,7 @@ poisson.fit.robmixglm <- function(x,y,offset,gh,notrials,EMTol, calcHessian=TRUE
     if (!is.finite(negll)) negll <- NA
     return(negll)
   }
+  
   if (is.null(starting.values)) {
     maxll <- -Inf
     

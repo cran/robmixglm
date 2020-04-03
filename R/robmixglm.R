@@ -32,7 +32,7 @@ robmixglm <-
   if(is.null(offset)) offset <- rep(0.0,dim(X)[1])
     
   if (family=="binomial")  {
-    if (class(Y)!="matrix") stop("Binomial data must be in success failure form.")
+    if (!inherits(Y,"matrix")) stop("Binomial data must be in success failure form.")
     if (dim(Y)[2]!=2) stop("Binomial data must be in success failure form.")
     if (any(Y[,1] <0) | any(Y[,2] <0)) stop("Binomial data must be positive.")
     if (any(!is.wholenumber(Y[,1]) | !is.wholenumber(Y[,2]))) stop("Binomial data must be integers.")

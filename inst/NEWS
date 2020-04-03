@@ -1,3 +1,7 @@
+Changes in robmixglm version 1.0-3
+
+  o fixed error due to changes in class() behaviour by replacing with inherits when appropriate
+
 Changes in robmixglm version 1.0-2
 
   o added extra sentences in description

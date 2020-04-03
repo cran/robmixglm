@@ -1,4 +1,4 @@
-81c7624c1600511db2f08886443046c3 *DESCRIPTION
+481761cc8f9e99ca8e76c9066b546f24 *DESCRIPTION
 1478b60dc439926d629e598f87b84e78 *NAMESPACE
 a446205fd58954392c5eef327c1f2237 *R/RcppExports.R
 2428a20e81b0f6f1aefc27c664a43394 *R/binomial.fit.robmixglm.R
@@ -15,17 +15,17 @@ a070511cfdddd5619ce95d72c13090ea *R/norm.gauss.hermite.R
 0d7b2c63d9758e20eba12be755d4bd3e *R/outlierProbs.robmixglm.R
 0667a7c763df251f3d774c9ea71a3e6a *R/outlierTest.robmixglm.R
 108e92734960c500ecb532805301e55e *R/plot.outlierProbs.R
-c0886757ba47d33d65fee4daf54dfe94 *R/poisson.fit.robmixglm.R
+d42723958b847222ebd5c67f2ded213b *R/poisson.fit.robmixglm.R
 69df6180804ff2429badf419e2c7aa3d *R/print.outlierTest.R
 1d26ba429e262a4c4c8ea50f9fe63271 *R/print.summary.robmixglm.R
 9b18114b798c014be61388c1033c5fbb *R/residuals.robmixglm.R
-f55480501045169164ab502d6c72eca9 *R/robmixglm.R
+e3055f153688a1d4035a2adc4a747edd *R/robmixglm.R
 9460badc482a273b40caea98ad5e404f *R/summary.robmixglm.R
 0c1282a13ba3f413a1d30d5be1bd17fe *R/truncpoisson.fit.robmixglm.R
-97c33cd3defb0ebfba1124a85e636ffc *build/vignette.rds
+e54d4a3a1a9d0ab04f8ddd9b708d5a2a *build/vignette.rds
 46133df8b6b2f7a4f3dcea04975e5403 *data/diabdata.rda
 5a733b6bb97663637f1037cf5e4fba9e *data/hospcosts.rda
-ea9da880babd534a9dff02dd4df40e04 *inst/NEWS
+de500d5873ccaeb5406fcb37099b7a94 *inst/NEWS
 424fbbb04ff203a66574433324ce419a *inst/doc/robmixglm-package.pdf
 2c0ea3c217dbcf0f3f6134d6b7b5ce7a *inst/doc/robmixglm-package.pdf.asis
 70700fc9f6719fce4f114e557df7b51e *man/AIC.Rd
