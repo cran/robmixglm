@@ -1,3 +1,9 @@
+Changes in robmixglm version 1.0-4
+
+  o fixed numerical problems
+
+  o improved selection of starting values, especially with small number of observations
+
 Changes in robmixglm version 1.0-3
 
   o fixed error due to changes in class() behaviour by replacing with inherits when appropriate

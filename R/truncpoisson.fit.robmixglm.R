@@ -76,8 +76,8 @@ truncpoisson.fit.robmixglm <- function(x,y,offset,gh,notrials,EMTol, calcHessian
      eval(parse(text=doprefit))
       
     prefit.coef <- coef(robust.truncpoisson.prefit)
-    # assume 50% outliers as a starting point
-    currlpoutlier <- log(0.5/(1-0.5))
+    # assume 20% outliers as a starting point
+    currlpoutlier <- log(0.2/(1-0.2))
     currxcoef <- matrix(prefit.coef[1:(length(prefit.coef))],ncol=1)
     currxcoef <- ifelse(is.na(currxcoef),0,currxcoef)
     currtau2 <- min(rgamma(1,1.5,1),2)
@@ -103,8 +103,12 @@ truncpoisson.fit.robmixglm <- function(x,y,offset,gh,notrials,EMTol, calcHessian
       ll1 <- actuar::dztpois(y, exp(lp), TRUE)+log(1-currpoutlier) 
       ll2 <- llrandtruncpoiscpp(y, lp, currtau2, gh)+log(currpoutlier)
       
-      l <- exp(cbind(ll1,ll2))
-      prop <- l/apply(l,1,sum)
+      ll <- cbind(ll1,ll2)
+      prop <- t(apply(ll,1,function(x) {
+        x <- x-max(x)
+        x <- ifelse(x==-Inf,-1e100,x)
+        return(exp(x)/sum(exp(x)))
+      }))
       # calculate outlier proportion
       poutlier <- sum(prop[,2])/dim(prop)[1]
       currlpoutlier <- log(poutlier/(1-poutlier))
@@ -114,14 +118,14 @@ truncpoisson.fit.robmixglm <- function(x,y,offset,gh,notrials,EMTol, calcHessian
         startvals <- c(currxcoef,currtau2)
         names(startvals) <- c(dimnames(x)[[2]],"tau2")
  
-      results.nlm <- nlminb(startvals,optimrlreg,
+      results.nlm <- suppressWarnings(nlminb(startvals,optimrlreg,
                                        lower=c(rep(-Inf,length(currxcoef)),0),
                                        #control=list(trace=1,iter.max=10),
                                        control=list(iter.max=5),
                                        lpoutlier=currlpoutlier,
                                        prop=prop,
                                        y=y,x=x,offset=offset,
-                                       fixed=fixed)
+                                       fixed=fixed))
       currxcoef <- matrix(as.numeric(results.nlm$par)[1:(length(results.nlm$par)-1)],ncol=1)
       currtau2 <- as.numeric(results.nlm$par)[length(results.nlm$par)]
       
@@ -161,9 +165,9 @@ truncpoisson.fit.robmixglm <- function(x,y,offset,gh,notrials,EMTol, calcHessian
     
     for (i in 1:notrials) {
       try({
-        outliers <- rbinom(dim(x)[1],1,0.5)
-        #outliers <- sample(c(rep(0,dim(x)[1] %/% 2),rep(1,dim(x)[1]-dim(x)[1] %/% 2)),dim(x)[1])        outliers <- sample(c(rep(0,dim(x)[1] %/% 2),rep(1,dim(x)[1]-dim(x)[1] %/% 2)),dim(x)[1])
-      thefit <- suppressWarnings(fitonemlreg(y,outliers,x,offset,fixed=NULL))
+        noutliers <- max(1,round(dim(x)[1]*0.2))
+        outliers <- sample(c(rep(1,noutliers),rep(0,dim(x)[1]-noutliers)),dim(x)[1])
+        thefit <- fitonemlreg(y,outliers,x,offset,fixed=NULL)
       if (verbose) print(c(thefit$ll,thefit$start.val))
       if (thefit$ll>maxll) {
         maxll <- thefit$ll
@@ -173,7 +177,7 @@ truncpoisson.fit.robmixglm <- function(x,y,offset,gh,notrials,EMTol, calcHessian
       if (!is.finite(maxll)) stop("No starting values found") 
     }
   } else {
-    thefit <- suppressWarnings(fitonemlreg(y,NULL,x,offset,fixed=NULL))
+    thefit <- fitonemlreg(y,NULL,x,offset,fixed=NULL)
     start.val <- thefit$start.val
   }
   
@@ -216,9 +220,13 @@ truncpoisson.fit.robmixglm <- function(x,y,offset,gh,notrials,EMTol, calcHessian
   ll1 <- actuar::dztpois(y, exp(lp), TRUE)+log(1-poutlier) 
   ll2 <- llrandtruncpoiscpp(y, lp, tau2, gh)+log(poutlier)
   
-  l <- exp(cbind(ll1,ll2))
-  prop <- l/apply(l,1,sum)
-
+  ll <- cbind(ll1,ll2)
+  prop <- t(apply(ll,1,function(x) {
+    x <- x-max(x)
+    x <- ifelse(x==-Inf,-1e100,x)
+    return(exp(x)/sum(exp(x)))
+  }))
+  
   coef.names <- c(dimnames(x)[[2]],"Outlier p.","Tau-sq")
   return(list(fit=robusttruncpoisson.fit,prop=prop,logLik=-robusttruncpoisson.fit@min,np=length(coef.names),nobs=dim(x)[1],coef.names=coef.names))  
 }

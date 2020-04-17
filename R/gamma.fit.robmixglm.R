@@ -11,7 +11,7 @@ gamma.fit.robmixglm <- function(x,y,offset,gh,notrials,EMTol,  calcHessian=TRUE,
       
       if(!is.null(offset)) lp <- lp+offset
       
-      lp1 <-  suppressWarnings(dgamma(y,shape=1.0/phi,rate=1.0/(phi*exp(lp)),log=TRUE))
+      lp1 <-  dgamma(y,shape=1.0/phi,rate=1.0/(phi*exp(lp)),log=TRUE)
       lp2 <- llrandgammacpp(y, lp, tau2, phi, gh)
        
       if (!missing(prop)) {
@@ -52,8 +52,8 @@ gamma.fit.robmixglm <- function(x,y,offset,gh,notrials,EMTol,  calcHessian=TRUE,
     
     # get the starting values
     prefit.coef <- coef(robust.gamma.prefit)
-    # assume 50% outliers as a starting point
-    currlpoutlier <- log(0.5/(1-0.5))
+    # assume 20% outliers as a starting point
+    currlpoutlier <- log(0.2/(1-0.2))
     currxcoef <- matrix(prefit.coef[1:(length(prefit.coef))],ncol=1)
     currxcoef <- ifelse(is.na(currxcoef),0,currxcoef)
     currtau2 <- min(rgamma(1,2,1),3)
@@ -81,8 +81,12 @@ gamma.fit.robmixglm <- function(x,y,offset,gh,notrials,EMTol,  calcHessian=TRUE,
       ll1 <- dgamma(y, shape=1.0/currphi,rate=1.0/(currphi*exp(lp)), log = TRUE)+log(1-currpoutlier) 
       ll2 <- llrandgammacpp(y, lp, currtau2, currphi, gh)+log(currpoutlier)
       
-      l <- exp(cbind(ll1,ll2))
-      prop <- l/apply(l,1,sum)
+      ll <- cbind(ll1,ll2)
+      prop <- t(apply(ll,1,function(x) {
+        x <- x-max(x)
+        x <- ifelse(x==-Inf,-1e100,x)
+        return(exp(x)/sum(exp(x)))
+      }))
       # calculate outlier proportion
       poutlier <- sum(prop[,2])/dim(prop)[1]
       currlpoutlier <- log(poutlier/(1-poutlier))
@@ -126,7 +130,7 @@ gamma.fit.robmixglm <- function(x,y,offset,gh,notrials,EMTol,  calcHessian=TRUE,
     
     if (!is.null(offset)) lp <- lp+offset
     
-    ll1 <- suppressWarnings(dgamma(y,shape=1.0/phi,rate=1.0/(phi*exp(lp)),log=TRUE)+log(1-poutlier))
+    ll1 <- dgamma(y,shape=1.0/phi,rate=1.0/(phi*exp(lp)),log=TRUE)+log(1-poutlier)
     
     ll2 <- llrandgammacpp(y, lp, tau2, phi, gh)+log(poutlier)
     
@@ -142,8 +146,9 @@ gamma.fit.robmixglm <- function(x,y,offset,gh,notrials,EMTol,  calcHessian=TRUE,
     
     for (i in 1:notrials) {
       try({
-        outliers <- rbinom(dim(x)[1],1,0.5)
-      thefit <- suppressWarnings(fitonemlreg(y,outliers,x,offset,fixed=NULL))
+        noutliers <- max(1,round(dim(x)[1]*0.2))
+        outliers <- sample(c(rep(1,noutliers),rep(0,dim(x)[1]-noutliers)),dim(x)[1])
+        thefit <- fitonemlreg(y,outliers,x,offset,fixed=NULL)
       if (verbose) print(c(thefit$ll,thefit$start.val))
       if (thefit$ll>maxll) {
         maxll <- thefit$ll
@@ -153,7 +158,7 @@ gamma.fit.robmixglm <- function(x,y,offset,gh,notrials,EMTol,  calcHessian=TRUE,
       if (!is.finite(maxll)) stop("No starting values found") 
     }
   } else {
-    thefit <- suppressWarnings(fitonemlreg(y,NULL,x,offset,fixed=NULL))
+    thefit <- fitonemlreg(y,NULL,x,offset,fixed=NULL)
     start.val <- thefit$start.val
   }
   
@@ -195,9 +200,13 @@ gamma.fit.robmixglm <- function(x,y,offset,gh,notrials,EMTol,  calcHessian=TRUE,
   ll1 <- dgamma(y,shape=1.0/phi,rate=1.0/(phi*exp(lp)),log=TRUE)+log(1-poutlier)  
 	ll2 <- llrandgammacpp(y, lp, tau2, phi, gh)+log(poutlier)
   
-  l <- exp(cbind(ll1,ll2))
-  prop <- l/apply(l,1,sum)
-  
+	ll <- cbind(ll1,ll2)
+	prop <- t(apply(ll,1,function(x) {
+	  x <- x-max(x)
+	  x <- ifelse(x==-Inf,-1e100,x)
+	  return(exp(x)/sum(exp(x)))
+	}))
+	
   coef.names <- c(dimnames(x)[[2]],"Outlier p.","Tau-sq","Phi")
   return(list(fit=robustgamma.fit,prop=prop,logLik=-robustgamma.fit@min,np=length(coef.names),nobs=dim(x)[1],coef.names=coef.names))  
 }

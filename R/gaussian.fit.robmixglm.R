@@ -14,13 +14,11 @@ gaussian.fit.robmixglm <- function(x,y,offset,gh,notrials,EMTol,  calcHessian=TR
       lp1 <- dnorm(y, mean=lp, sd=sqrt(sigma2), log = TRUE)
       lp2 <- dnorm(y, mean=lp, sd=sqrt(tau2+sigma2), log=TRUE)
       
-      if (!missing(prop)) {
-        ll <- prop*cbind(lp1,lp2)
-        negll <- -sum(apply(ll,1,sum))
-      } else {
-        l <- exp(cbind(lp1+log(1-poutlier),lp2+log(poutlier)))
-        negll <- -sum(log(apply(l,1,sum)))
-      }
+      if (!missing(prop))  ll <- prop*cbind(lp1,lp2)
+      else ll <- cbind(lp1+log(1-poutlier),lp2+log(poutlier))
+      
+      maxll <- apply(ll,1,max)
+      negll <- -sum(maxll+log(apply(exp(ll-maxll),1,sum)))
       if (is.nan(negll)) negll <- NA
       if (!is.finite(negll)) negll <- NA
       return(negll)
@@ -53,7 +51,7 @@ gaussian.fit.robmixglm <- function(x,y,offset,gh,notrials,EMTol,  calcHessian=TR
      
         prefit.coef <- coef(robust.gaussian.prefit)
         # assume 50% outliers as a starting point
-        currlpoutlier <- log(0.5/(1-0.5))
+        currlpoutlier <- log(0.2/(1-0.2))
         currxcoef <- matrix(prefit.coef[1:(length(prefit.coef))],ncol=1)
         currxcoef <- ifelse(is.na(currxcoef),0,currxcoef)
         currtau2 <- min(rgamma(1,2,1),5)*summary(robust.gaussian.prefit)$sigma^2
@@ -79,8 +77,12 @@ gaussian.fit.robmixglm <- function(x,y,offset,gh,notrials,EMTol,  calcHessian=TR
         ll1 <- dnorm(y, mean=lp, sd=sqrt(currsigma2), log = TRUE)+log(1-currpoutlier) 
         ll2 <- dnorm(y, mean=lp, sd=sqrt(currsigma2+currtau2),log=TRUE)+log(currpoutlier)
         
-        l <- exp(cbind(ll1,ll2))
-        prop <- l/apply(l,1,sum)
+        ll <- cbind(ll1,ll2)
+        prop <- t(apply(ll,1,function(x) {
+          x <- x-max(x)
+          x <- ifelse(x==-Inf,-1e100,x)
+          return(exp(x)/sum(exp(x)))
+        }))
         # calculate outlier proportion
         poutlier <- sum(prop[,2])/dim(prop)[1]
         currlpoutlier <- log(poutlier/(1-poutlier))
@@ -127,8 +129,9 @@ gaussian.fit.robmixglm <- function(x,y,offset,gh,notrials,EMTol,  calcHessian=TR
       
       ll2 <- dnorm(y, mean=lp, sd=sqrt(sigma2+tau2), log = TRUE)+log(poutlier)
       
-      l <- exp(cbind(ll1,ll2))
-      negll <- -sum(log(apply(l,1,sum)))
+      ll <- cbind(ll1,ll2)
+      maxll <- apply(ll,1,max)
+      negll <- -sum(maxll+log(apply(exp(ll-maxll),1,sum)))
       if (is.nan(negll)) negll <- NA
       if (!is.finite(negll)) negll <- NA
       return(negll)
@@ -139,15 +142,16 @@ gaussian.fit.robmixglm <- function(x,y,offset,gh,notrials,EMTol,  calcHessian=TR
       
       for (i in 1:notrials) {
         try({
-          outliers <- rbinom(dim(x)[1],1,0.5)
-         thefit <- suppressWarnings(fitonemlreg(y,outliers,x,offset,fixed=NULL))
+          noutliers <- max(1,round(dim(x)[1]*0.2))
+          outliers <- sample(c(rep(1,noutliers),rep(0,dim(x)[1]-noutliers)),dim(x)[1])
+          thefit <- fitonemlreg(y,outliers,x,offset,fixed=NULL)
         if (verbose) print(c(thefit$ll,thefit$start.val))
         if (thefit$ll>maxll) {
           maxll <- thefit$ll
           start.val <- thefit$start.val
         }}
         )
-        if (!is.finite(maxll)) stop("No starting values found") 
+         if (!is.finite(maxll)) stop("No starting values found") 
       }
     } else {
       thefit <- fitonemlreg(y,NULL,x,offset,fixed=NULL)
@@ -194,8 +198,12 @@ gaussian.fit.robmixglm <- function(x,y,offset,gh,notrials,EMTol,  calcHessian=TR
     ll1 <- dnorm(y, mean=lp, sd=sqrt(sigma2),log = TRUE)+log(1-poutlier) 
     ll2 <- dnorm(y, mean=lp, sd=sqrt(sigma2+tau2),log = TRUE)+log(poutlier)
     
-    l <- exp(cbind(ll1,ll2))
-    prop <- l/apply(l,1,sum)
+    ll <- cbind(ll1,ll2)
+    prop <- t(apply(ll,1,function(x) {
+      x <- x-max(x)
+      x <- ifelse(x==-Inf,-1e100,x)
+      return(exp(x)/sum(exp(x)))
+    }))
     
     coef.names <- c(dimnames(x)[[2]],"Outlier p.","Tau-sq","Sigma-sq")
     return(list(fit=robustgaussian.fit,prop=prop,logLik=-robustgaussian.fit@min,np=length(coef.names),nobs=dim(x)[1],coef.names=coef.names))  

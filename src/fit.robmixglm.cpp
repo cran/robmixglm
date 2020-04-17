@@ -18,17 +18,21 @@ int nquad=gh.nrow();
 int nobs=y.size();
 
 NumericVector ll(nobs);
-double thel;
+NumericVector thevals(nquad);
+double thel, maxval;
 
 for (int irow=0;irow<nobs;irow++) {
-  thel=0.0;
   if (tau2[0]==0.0) ll(irow) = R::dpois(y(irow), std::exp(lp(irow)), true);
   else {
+    for (int j=0;j<nquad;j++) {
+       thevals(j)=R::dpois(y(irow),std::exp(lp(irow)+gh(j,0)*sqrt(tau2[0])),true)+std::log(gh(j,1));
+    }
+    maxval=max(thevals);
     thel=0.0;
     for (int j=0;j<nquad;j++) {
-      thel=thel+R::dpois(y(irow),std::exp(lp(irow)+gh(j,0)*sqrt(tau2[0])),false)*gh(j,1);
+      thel=thel+std::exp(thevals(j)-maxval);
     }
-    ll(irow) = std::log(thel);
+    ll(irow) = maxval+std::log(thel);
   }
 }
 return ll;
@@ -41,17 +45,21 @@ NumericVector llrandnegbinomcpp(NumericVector y, NumericVector lp, NumericVector
   int nobs=y.size();
   
   NumericVector ll(nobs);
-  double thel;
+  NumericVector thevals(nquad);
+  double thel, maxval;
   
   for (int irow=0;irow<nobs;irow++) {
-    thel=0.0;
     if (tau2[0]==0.0) ll(irow) = R::dnbinom_mu(y(irow), theta[0], std::exp(lp(irow)), true);
     else {
+      for (int j=0;j<nquad;j++) {
+        thevals(j)=R::dnbinom_mu(y(irow),theta[0], std::exp(lp(irow)+gh(j,0)*sqrt(tau2[0])),true)+std::log(gh(j,1));
+      }
+      maxval=max(thevals);
       thel=0.0;
       for (int j=0;j<nquad;j++) {
-        thel=thel+R::dnbinom_mu(y(irow),theta[0], std::exp(lp(irow)+gh(j,0)*sqrt(tau2[0])),false)*gh(j,1);
+        thel=thel+std::exp(thevals(j)-maxval);
       }
-      ll(irow) = std::log(thel);
+      ll(irow) = maxval+std::log(thel);
     }
   }
   return ll;
@@ -66,20 +74,24 @@ NumericVector llrandtruncpoiscpp(NumericVector y, NumericVector lp, NumericVecto
 int nobs=y.size();
 
 NumericVector ll(nobs);
-double thel;
+NumericVector thevals(nquad);
+double thel, maxval;
 
 for (int irow=0;irow<nobs;irow++) {
-  thel=0.0;
   /* ???? call actuar::dztpois
   */
   if (tau2[0]==0.0) ll(irow) = R::dpois(y(irow), std::exp(lp(irow)), true)-std::log(1-std::exp(-(std::exp(lp(irow)))));
   else {
-    thel=0.0;
     for (int j=0;j<nquad;j++) {
       double lambda = std::exp(lp(irow)+gh(j,0)*sqrt(tau2[0]));
-      thel=thel+R::dpois(y(irow), lambda, false)/(1-std::exp(-lambda))*gh(j,1);
+      thevals(j)=R::dpois(y(irow), lambda, true)-std::log(1-std::exp(-lambda))+std::log(gh(j,1));
     }
-    ll(irow) = std::log(thel);
+    maxval=max(thevals);
+    thel=0.0;
+    for (int j=0;j<nquad;j++) {
+      thel=thel+std::exp(thevals(j)-maxval);
+    }
+    ll(irow) = maxval+std::log(thel);
   }
 }
 return ll;
@@ -92,17 +104,22 @@ int nquad=gh.nrow();
 int nobs=y.size();
 
 NumericVector ll(nobs);
-double thel;
+NumericVector thevals(nquad);
+double thel, maxval;
 
 for (int irow=0;irow<nobs;irow++) {
   thel=0.0;
   if (tau2[0]==0.0) ll(irow) = R::dgamma(y(irow), 1.0/phi[0], 1.0/(phi[0]*std::exp(lp(irow))), true);
   else {
+    for (int j=0;j<nquad;j++) {
+      thevals(j)=R::dgamma(y(irow), 1.0/phi[0], 1.0*(phi[0]*std::exp(lp(irow)+gh(j,0)*sqrt(tau2[0]))),true)+std::log(gh(j,1));
+    }
+    maxval=max(thevals);
     thel=0.0;
     for (int j=0;j<nquad;j++) {
-      thel=thel+R::dgamma(y(irow), 1.0/phi[0], 1.0*(phi[0]*std::exp(lp(irow)+gh(j,0)*sqrt(tau2[0]))),false)*gh(j,1);
+      thel=thel+std::exp(thevals(j)-maxval);
     }
-    ll(irow) = std::log(thel);
+    ll(irow) = maxval+std::log(thel);
   }
 }
 return ll;
@@ -115,17 +132,22 @@ int nquad=gh.nrow();
 int nobs=y.nrow();
 
 NumericVector ll(nobs);
-double thel;
+NumericVector thevals(nquad);
+double thel, maxval;
 
 for (int irow=0;irow<nobs;irow++) {
   thel=0.0;
   if (tau2[0]==0.0) ll(irow) = R::dbinom(y(irow,0),y(irow,0)+y(irow,1), 1.0/(1.0+std::exp(-lp(irow))), true);
   else {
+    for (int j=0;j<nquad;j++) {
+      thevals(j)=R::dbinom(y(irow,0),y(irow,0)+y(irow,1),1.0/(1.0+std::exp(-lp(irow)-gh(j,0)*sqrt(tau2[0]))),true)+std::log(gh(j,1));
+    }
+    maxval=max(thevals);
     thel=0.0;
     for (int j=0;j<nquad;j++) {
-      thel=thel+R::dbinom(y(irow,0),y(irow,0)+y(irow,1),1.0/(1.0+std::exp(-lp(irow)-gh(j,0)*sqrt(tau2[0]))),false)*gh(j,1);
+      thel=thel+std::exp(thevals(j)-maxval);
     }
-    ll(irow) = std::log(thel);
+    ll(irow) = maxval+std::log(thel);
   }
 }
 return ll;

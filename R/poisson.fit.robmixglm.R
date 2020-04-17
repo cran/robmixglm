@@ -1,31 +1,5 @@
 poisson.fit.robmixglm <- function(x,y,offset,gh,notrials,EMTol, calcHessian=TRUE, verbose, starting.values=NULL) {
 
-
-  llrandpois <- function(y, lp, tau2, gh){
-
-    dointegrate <- function(oney,onelp,tau2) {
-
-      thefun <- function(nu){
-        return(dpois(oney,exp(onelp+nu*sqrt(tau2))))
-      }
-      theint <- sum(thefun(gh[,1])*gh[,2])
-      if (is.nan(theint)) theint <- NA
-      return(log(theint))
-    }
-
-    calconell <- function(x) {
-      oney <- x[1]
-      onelp <- x[2]
-      if (tau2<0.0) return(NA)
-      if (tau2==0) thell <- dpois(oney,exp(onelp),log=TRUE) else
-        thell <- dointegrate(oney=oney,onelp=onelp,tau2=tau2)
-      return(thell)
-    }
-    if (is.na(tau2)) stop("error in tau2")
-    ll <- apply(cbind(y,lp),1,calconell)
-    return(ll)
-  }
-  
   fitonemlreg <- function(y,outliers,x=NULL,offset=NULL,fixed) {
     
     rlreg <- function(xcoef,lpoutlier,tau2,x,y,offset,prop) {
@@ -55,6 +29,8 @@ poisson.fit.robmixglm <- function(x,y,offset,gh,notrials,EMTol, calcHessian=TRUE
       return(rlreg(matrix(p[1:(length(p)-1)],ncol=1),lpoutlier,p[length(p)],x,y,offset,prop))
     }
     
+    #browser()
+    
     thedata <- data.frame(y,x)
     
     lastdata=length(names(thedata))
@@ -77,8 +53,8 @@ poisson.fit.robmixglm <- function(x,y,offset,gh,notrials,EMTol, calcHessian=TRUE
     eval(parse(text=doprefit))
     
     prefit.coef <- coef(robust.poisson.prefit)
-    # assume 50% outliers as a starting point
-    currlpoutlier <- log(0.5/(1-0.5))
+    # assume 20% outliers as a starting point
+    currlpoutlier <- log(0.2/(1-0.2))
     currxcoef <- matrix(prefit.coef[1:(length(prefit.coef))],ncol=1)
     currxcoef <- ifelse(is.na(currxcoef),0,currxcoef)
     currtau2 <- min(rgamma(1,2,1),5)
@@ -103,10 +79,15 @@ poisson.fit.robmixglm <- function(x,y,offset,gh,notrials,EMTol, calcHessian=TRUE
       
       ll1 <- dpois(y, exp(lp), log = TRUE)+log(1-currpoutlier) 
       ll2 <- llrandpoiscpp(y, lp, currtau2, gh)+log(currpoutlier)
-      l <- exp(cbind(ll1,ll2))
-      prop <- l/apply(l,1,sum)
+      ll <- cbind(ll1,ll2)
+      prop <- t(apply(ll,1,function(x) {
+        x <- x-max(x)
+        x <- ifelse(x==-Inf,-1e100,x)
+        return(exp(x)/sum(exp(x)))
+      }))
       # calculate outlier proportion
       poutlier <- sum(prop[,2])/dim(prop)[1]
+      if (any(is.na(poutlier))) browser()
       currlpoutlier <- log(poutlier/(1-poutlier))
       
       if (is.na(poutlier)) stop("poutlier is NA")
@@ -122,7 +103,7 @@ poisson.fit.robmixglm <- function(x,y,offset,gh,notrials,EMTol, calcHessian=TRUE
                             prop=prop,
                             y=y,x=x,offset=offset,
                             fixed=fixed))
-      currxcoef <- matrix(as.numeric(results.nlm$par)[1:(length(results.nlm$par)-1)],ncol=1)
+       currxcoef <- matrix(as.numeric(results.nlm$par)[1:(length(results.nlm$par)-1)],ncol=1)
       currtau2 <- as.numeric(results.nlm$par)[length(results.nlm$par)]
       
       lastll <- currll
@@ -146,6 +127,7 @@ poisson.fit.robmixglm <- function(x,y,offset,gh,notrials,EMTol, calcHessian=TRUE
     if (!is.null(offset)) lp <- lp+offset
     
     ll1 <- dpois(y, exp(lp), log = TRUE)+log(1-poutlier)
+#    print(cbind(llrandpoiscpp(y, lp, tau2, gh)-llrandpois(y, lp, tau2, gh)))
     
     ll2 <- llrandpoiscpp(y, lp, tau2, gh)+log(poutlier)
     
@@ -156,15 +138,16 @@ poisson.fit.robmixglm <- function(x,y,offset,gh,notrials,EMTol, calcHessian=TRUE
     return(negll)
   }
   
+  #browser()
   if (is.null(starting.values)) {
     maxll <- -Inf
     
     for (i in 1:notrials) {
       try({
-        outliers <- rbinom(dim(x)[1],1,0.5)
-        #outliers <- sample(c(rep(0,dim(x)[1] %/% 2),rep(1,dim(x)[1]-dim(x)[1] %/% 2)),dim(x)[1])
-        thefit <- suppressWarnings(fitonemlreg(y,outliers,x,offset,fixed=NULL))
-      if (verbose) print(c(thefit$ll,thefit$start.val))
+        noutliers <- max(1,round(dim(x)[1]*0.2))
+        outliers <- sample(c(rep(1,noutliers),rep(0,dim(x)[1]-noutliers)),dim(x)[1])
+        thefit <- fitonemlreg(y,outliers,x,offset,fixed=NULL)
+        if (verbose) print(c(thefit$ll,thefit$start.val))
       if (thefit$ll>maxll) {
         maxll <- thefit$ll
         start.val <- thefit$start.val
@@ -173,12 +156,14 @@ poisson.fit.robmixglm <- function(x,y,offset,gh,notrials,EMTol, calcHessian=TRUE
       if (!is.finite(maxll)) stop("No starting values found") 
     }
   } else {
-    thefit <- suppressWarnings(fitonemlreg(y,NULL,x,offset,fixed=NULL))
+    thefit <- fitonemlreg(y,NULL,x,offset,fixed=NULL)
     start.val <- thefit$start.val
   }
 
     thenames <- c(dimnames(x)[[2]],"lpoutlier","tau2")
   
+    #browser()
+    
   names(start.val) <- thenames
   
   parnames(ll.robustpoisson) <- names(start.val)
@@ -198,7 +183,7 @@ poisson.fit.robmixglm <- function(x,y,offset,gh,notrials,EMTol, calcHessian=TRUE
                             data=list(y=y,x=x,offset=offset),
                             skip.hessian=TRUE,trace=verbose,
                             lower=lower.val)
-  
+
   if (calcHessian) {
     thecoef <- coef(robustpoisson.fit)
     ncoef <- length(thecoef)
@@ -218,12 +203,17 @@ poisson.fit.robmixglm <- function(x,y,offset,gh,notrials,EMTol, calcHessian=TRUE
   if (!is.null(offset)) lp <- lp+offset
   
   ll1 <- dpois(y, exp(lp), log = TRUE)+log(1-poutlier) 
-  ll2 <- llrandpoiscpp(y, lp, tau2, gh)+log(poutlier)
+    ll2 <- llrandpoiscpp(y, lp, tau2, gh)+log(poutlier)
   
-  l <- exp(cbind(ll1,ll2))
-  prop <- l/apply(l,1,sum)
-  
+  ll <- cbind(ll1,ll2)
+  prop <- t(apply(ll,1,function(x) {
+    x <- x-max(x)
+    x <- ifelse(x==-Inf,-1e100,x)
+    return(exp(x)/sum(exp(x)))
+  }))
+
   coef.names <- c(dimnames(x)[[2]],"Outlier p.","Tau-sq")
+  #browser()
   return(list(fit=robustpoisson.fit,prop=prop,logLik=-robustpoisson.fit@min,np=length(coef.names),nobs=dim(x)[1],coef.names=coef.names))  
 }
 
