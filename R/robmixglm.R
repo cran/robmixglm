@@ -1,6 +1,6 @@
 robmixglm <-
-  function(formula,family=c("gaussian","binomial","poisson","gamma","truncpoisson"),data,offset=NULL,quadpoints=21,notrials=20,EMTol=1.0e-4,verbose=FALSE) {
-#  function(formula,family=c("gaussian","binomial","poisson","gamma","truncpoisson","negbinom"),data,offset=NULL,quadpoints=21,notrials=20,EMTol=1.0e-4,verbose=FALSE) {
+ function(formula,family=c("gaussian","binomial","poisson","gamma","truncpoisson"),data,offset=NULL,quadpoints=21,
+          notrials=20,EMTol=1.0e-4, cores = max(detectCores() - 1, 1), verbose=FALSE) {
       
   is.wholenumber <- function(x, tol = .Machine$double.eps^0.5)  abs(x - round(x)) < tol
   
@@ -8,11 +8,11 @@ robmixglm <-
   
   if (missing(family)) family <- "gaussian"
   
-  if (!(family %in% c("gaussian","binomial","poisson","gamma","truncpoisson")))
-    stop("Valid families are gaussian, binomial, poisson, gamma, truncpoisson.\n")
+#  if (!(family %in% c("gaussian","binomial","poisson","gamma","truncpoisson")))
+#    stop("Valid families are gaussian, binomial, poisson, gamma, truncpoisson.\n")
   
-  # if (!(family %in% c("gaussian","binomial","poisson","gamma","truncpoisson","negbinom")))
-  #   stop("Valid families are gaussian, binomial, poisson, gamma, truncpoisson, negbinom.\n")
+  if (!(family %in% c("gaussian","binomial","poisson","gamma","truncpoisson","nbinom")))
+    stop("Valid families are gaussian, binomial, poisson, gamma, truncpoisson, nbinom.\n")
   
   if (missing(data)) data <- environment(formula)
   
@@ -27,6 +27,7 @@ robmixglm <-
   Y <- model.response(mf, "any")
 
   X <- model.matrix(mt,mf)
+
   offset <- model.extract(mf,"offset")
 
   if(is.null(offset)) offset <- rep(0.0,dim(X)[1])
@@ -52,30 +53,32 @@ robmixglm <-
     if (any(!is.wholenumber(Y))) stop("Truncated poisson data must be integers.")
   }
 
-  # if (family=="negbinom") {
-  #   if (any(Y <0)) stop("Negative binomial data must be positive.")
-  #   if (any(!is.wholenumber(Y))) stop("Negative binomial data must be integers.")
-  # }
+  if (family=="nbinom") {
+    if (any(Y <0)) stop("Negative binomial data must be positive.")
+    if (any(!is.wholenumber(Y))) stop("Negative binomial data must be integers.")
+  }
   
-  ret <- fit.robmixglm(X,Y,family,offset=offset,gh=norm.gauss.hermite(quadpoints),notrials,EMTol,verbose)
+  ret <- fit.robmixglm(X,Y,family,offset=offset,gh=norm.gauss.hermite(quadpoints),notrials,EMTol,cores,verbose)
 
   class(ret) <- "robmixglm"
+
   ret$call <- call
   ret$family <- family
   
-  ret$model <- list()
+  ret$X <- X
+  ret$Y <- Y
+  ret$offset <- offset
   
-  ret$model$X <- X
-  ret$model$Y <- Y
-  ret$model$offset <- offset
-  
+  ret$model <- mf
   ret$terms <- mt
-  
+
+  ret$xlevels <- .getXlevels(mt, mf)
+
   ret$quadpoints <- quadpoints
   ret$notrials <- notrials
   ret$EMTol <- EMTol
   ret$verbose <- verbose
-  
+# ??? need to fix manualto reflect returned values
   return(ret)
 }
 

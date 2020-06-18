@@ -19,9 +19,9 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
-// llrandnegbinomcpp
-NumericVector llrandnegbinomcpp(NumericVector y, NumericVector lp, NumericVector tau2, NumericVector theta, NumericMatrix gh);
-RcppExport SEXP _robmixglm_llrandnegbinomcpp(SEXP ySEXP, SEXP lpSEXP, SEXP tau2SEXP, SEXP thetaSEXP, SEXP ghSEXP) {
+// llrandnbinomcpp
+NumericVector llrandnbinomcpp(NumericVector y, NumericVector lp, NumericVector tau2, NumericVector theta, NumericMatrix gh);
+RcppExport SEXP _robmixglm_llrandnbinomcpp(SEXP ySEXP, SEXP lpSEXP, SEXP tau2SEXP, SEXP thetaSEXP, SEXP ghSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -30,7 +30,7 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< NumericVector >::type tau2(tau2SEXP);
     Rcpp::traits::input_parameter< NumericVector >::type theta(thetaSEXP);
     Rcpp::traits::input_parameter< NumericMatrix >::type gh(ghSEXP);
-    rcpp_result_gen = Rcpp::wrap(llrandnegbinomcpp(y, lp, tau2, theta, gh));
+    rcpp_result_gen = Rcpp::wrap(llrandnbinomcpp(y, lp, tau2, theta, gh));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -80,7 +80,7 @@ END_RCPP
 
 static const R_CallMethodDef CallEntries[] = {
     {"_robmixglm_llrandpoiscpp", (DL_FUNC) &_robmixglm_llrandpoiscpp, 4},
-    {"_robmixglm_llrandnegbinomcpp", (DL_FUNC) &_robmixglm_llrandnegbinomcpp, 5},
+    {"_robmixglm_llrandnbinomcpp", (DL_FUNC) &_robmixglm_llrandnbinomcpp, 5},
     {"_robmixglm_llrandtruncpoiscpp", (DL_FUNC) &_robmixglm_llrandtruncpoiscpp, 4},
     {"_robmixglm_llrandgammacpp", (DL_FUNC) &_robmixglm_llrandgammacpp, 5},
     {"_robmixglm_llrandbinomcpp", (DL_FUNC) &_robmixglm_llrandbinomcpp, 4},

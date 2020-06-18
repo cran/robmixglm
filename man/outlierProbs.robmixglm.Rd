@@ -23,9 +23,10 @@ The outlier probabilities are obtained as the posterior probabilities of each ob
 Ken Beath <ken.beath@mq.edu.au>
 }
 \examples{
+\donttest{
 library(MASS)
 data(forbes)
-forbes.robustmix <- robmixglm(bp~pres,data=forbes)
+forbes.robustmix <- robmixglm(bp~pres, data = forbes, cores = 1)
 outlierProbs(forbes.robustmix)
-}
+}}
 \keyword{method}

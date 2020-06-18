@@ -5,7 +5,7 @@
 Returns AIC for a robmixglm object.
 }
 \usage{
-\method{AIC}{robmixglm}(object, \ldots, k = 2)
+\method{AIC}{robmixglm}(object,  \ldots,  k  =  2)
 }
 \arguments{
   \item{object}{robmixglm object}
@@ -16,10 +16,12 @@ Returns AIC for a robmixglm object.
 AIC
 }
 \examples{
+\donttest{
 library(MASS)
 data(forbes)
-forbes.robustmix <- robmixglm(bp~pres,data=forbes)
+forbes.robustmix <- robmixglm(bp~pres, data = forbes, cores = 1)
 AIC(forbes.robustmix)
+}
 }
 \author{Ken Beath}
 \keyword{methods}

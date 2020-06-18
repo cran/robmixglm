@@ -8,7 +8,7 @@ coef.robmixglm <- function(object, ...) {
     poisson = object$fit@coef[1:(length(object$fit@coef)-2)],
     gamma = object$fit@coef[1:(length(object$fit@coef)-3)],
     truncpoisson = object$fit@coef[1:(length(object$fit@coef)-2)],
-    negbinom = object$fit@coef[1:(length(object$fit@coef)-3)]
+    nbinom = object$fit@coef[1:(length(object$fit@coef)-3)]
     )
     names(res) <- object$coef.names[1:length(res)]
     res

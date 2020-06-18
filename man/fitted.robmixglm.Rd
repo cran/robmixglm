@@ -5,7 +5,7 @@ Fitted values.}
 \description{
 Calculates the fitted values.}
 \usage{
-\method{fitted}{robmixglm}(object,\ldots)
+\method{fitted}{robmixglm}(object, \ldots)
 }
 \arguments{
   \item{object}{
@@ -19,10 +19,11 @@ A vector of the fitted values.
 Ken Beath <ken.beath@mq.edu.au>
 }
 \examples{
+\donttest{
 library(MASS)
 data(forbes)
-forbes.robustmix <- robmixglm(bp~pres,data=forbes)
+forbes.robustmix <- robmixglm(bp~pres, data = forbes, cores = 1)
 BIC(forbes.robustmix)
-plot(fitted(forbes.robustmix),residuals(forbes.robustmix))
-}
+plot(fitted(forbes.robustmix), residuals(forbes.robustmix))
+}}
 \keyword{method}

@@ -8,7 +8,7 @@ summary.robmixglm <- function(object, ...) {
   coefficients <- matrix(object$fit@coef,ncol=1)
   coefficients[,1] <- ifelse(!(object$coef.names=="Outlier p."),coefficients[,1],1.0/(1.0+exp(-coefficients)))
   lastnames <- 2
-  if (object$family %in% c("gaussian","gamma","negbinom")) lastnames <- 3
+  if (object$family %in% c("gaussian","gamma","nbinom")) lastnames <- 3
   coef.se <- sqrt(diag(object$fit@vcov))
   coef.se[(length(coefficients[,1])-lastnames+1):length(coefficients[,1])] <- NA
    coefficients <- cbind(coefficients,coef.se)

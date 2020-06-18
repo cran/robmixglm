@@ -1,4 +1,4 @@
-gamma.fit.robmixglm <- function(x,y,offset,gh,notrials,EMTol,  calcHessian=TRUE, verbose, starting.values=NULL) {
+gamma.fit.robmixglm <- function(x,y,offset,gh,notrials,EMTol,  calcHessian=TRUE, cores, verbose,  starting.values=NULL) {
 
     if (!is.null(starting.values)) notrials <- 1
 
@@ -140,26 +140,45 @@ gamma.fit.robmixglm <- function(x,y,offset,gh,notrials,EMTol,  calcHessian=TRUE,
     if (!is.finite(negll)) negll <- NA
     return(negll)
   }
+    if (!exists(".Random.seed", envir = .GlobalEnv, inherits = FALSE)) runif(1)
+    seed <- get(".Random.seed", envir = .GlobalEnv, inherits = FALSE)
   
   if (is.null(starting.values)) {
-    maxll <- -Inf
-    
-    for (i in 1:notrials) {
-      try({
-        noutliers <- max(1,round(dim(x)[1]*0.2))
-        outliers <- sample(c(rep(1,noutliers),rep(0,dim(x)[1]-noutliers)),dim(x)[1])
-        thefit <- fitonemlreg(y,outliers,x,offset,fixed=NULL)
-      if (verbose) print(c(thefit$ll,thefit$start.val))
-      if (thefit$ll>maxll) {
-        maxll <- thefit$ll
-        start.val <- thefit$start.val
-      }}
-      )
-      if (!is.finite(maxll)) stop("No starting values found") 
+    if (cores > 1) {
+      cl = parallel::makeCluster(cores, setup_strategy = "sequential")
+      doParallel::registerDoParallel(cl)
+      res = foreach(i = 1:notrials, 
+                    .options.RNG=seed[1]) %dorng% {
+                      noutliers <- max(1,round(dim(x)[1]*0.2))
+                      outliers <- sample(c(rep(1,noutliers),rep(0,dim(x)[1]-noutliers)),dim(x)[1])
+                      fitonemlreg(y,outliers,x,offset,fixed=NULL)}
+      parallel::stopCluster(cl)
+      maxll <- -Inf
+      for (i in 1:notrials) {
+        if (verbose) print(c(res[[i]]$ll,res[[i]]$start.val))
+        if (res[[i]]$ll>maxll) {
+          maxll <- res[[i]]$ll
+          start.val <- res[[i]]$start.val
+        }
+      }
+    } else {
+      maxll <- -Inf
+      for (i in 1:notrials) {
+        try({
+          noutliers <- max(1,round(dim(x)[1]*0.2))
+          outliers <- sample(c(rep(1,noutliers),rep(0,dim(x)[1]-noutliers)),dim(x)[1])
+          thefit <- fitonemlreg(y,outliers,x,offset,fixed=NULL)
+          if (verbose) print(c(thefit$ll,thefit$start.val))
+          if (thefit$ll>maxll) {
+            maxll <- thefit$ll
+            start.val <- thefit$start.val
+          }
+        }
+        )
+      }
     }
   } else {
-    thefit <- fitonemlreg(y,NULL,x,offset,fixed=NULL)
-    start.val <- thefit$start.val
+    start.val <- starting.values
   }
   
   thenames <- c(dimnames(x)[[2]],"lpoutlier","tau2", "phi")
@@ -176,7 +195,8 @@ gamma.fit.robmixglm <- function(x,y,offset,gh,notrials,EMTol,  calcHessian=TRUE,
                           optimizer="user",optimfun=myoptim,
                           data=list(y=y,x=x,offset=offset),
                             skip.hessian=TRUE,trace=verbose,
-                            lower=lower.val)
+                            lower=lower.val,
+                          control=if (verbose) list(eval.max=1000,iter.max=1000,trace=5) else list(eval.max=1000,iter.max=1000))
   
   if (calcHessian) {
     thecoef <- coef(robustgamma.fit)

@@ -5,36 +5,44 @@
 Fits robust generalized linear models and variants described in Beath (2018).
 }
 \usage{
-robmixglm(formula,family=c("gaussian","binomial","poisson",
-"gamma","truncpoisson"),data,offset=NULL,
-quadpoints=21,notrials=20,EMTol=1.0e-4,verbose=FALSE)
+robmixglm(formula, family = c("gaussian", "binomial", "poisson", 
+"gamma", "truncpoisson"), data, offset = NULL,quadpoints = 21, 
+notrials = 20, EMTol = 1.0e-4, cores  =  max(detectCores() - 1,  1), 
+verbose = FALSE)
 }
 %- maybe also 'usage' for other objects documented here.
 \arguments{
-  \item{formula}{Formula with columns containing outcomes on the left and covariates on the right.}
+\item{formula}{Model formula}
   \item{family}{Distribution of response}
   \item{data}{Data frame from which variables are obtained}
   \item{offset}{Offset to be incorporated in the linear predictor.}
   \item{quadpoints}{Number of quadrature points used in the Gauss-Hermite integration.}
   \item{notrials}{Number of random starting values to be used for EM}
   \item{EMTol}{Relative change in likelihood for completion of EM algorithm before switching to quasi-Newton}
+  \item{cores}{Number of cores to be used for parallel evaluation of starting values}
   \item{verbose}{Print out diagnostic information? This includes the likelihood and parameter estimates for each EM run.}
 }
 \value{
   robmixglm object. This contains
 \item{call}{Call to function}
 \item{family}{Family of model to be fitted}
-\item{model}{List of model components. These are X, the response, Y, the predictors, and offset, the offset}
-\item{quadpoints}{Number of quadrature points.}
-\item{notrials}{Number of trials}
-\item{EMTol}{EM tolerance used}
+  \item{X}{model matrix}
+  \item{Y}{response}
+  \item{offset}{Offset.}
+  \item{mf}{Model frame.}
+  \item{mt}{Model terms.}
+  \item{xlevels}{Levels for factors.}
+  \item{quadpoints}{Number of quadrature points used in the Gauss-Hermite integration.}
+  \item{notrials}{Number of random starting values to be used for EM}
+  \item{EMTol}{Relative change in likelihood for completion of EM algorithm before switching to quasi-Newton}
 \item{verbose}{Was verbose output requested?}
 }
-\references{Beath, K. J. A mixture-based approach to robust analysis of generalised linear models, Journal of Applied Statistics, 45(12), 2256-2268 (2018) DOI: 10.1080/02664763.2017.1414164}
+\references{Beath,  K. J. A mixture-based approach to robust analysis of generalised linear models,  Journal of Applied Statistics,  45(12),  2256-2268 (2018) DOI: 10.1080/02664763.2017.1414164}
 \author{Ken Beath}
 \examples{
+\donttest{
 library(MASS)
 data(forbes)
-forbes.robustmix <- robmixglm(100*log10(pres)~bp,data=forbes)
-}
+forbes.robustmix <- robmixglm(100*log10(pres)~bp, data = forbes, cores = 1)
+}}
 \keyword{multivariate}

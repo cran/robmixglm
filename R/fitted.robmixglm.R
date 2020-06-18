@@ -1,7 +1,7 @@
 fitted.robmixglm <- function(object, ...) {
   if (!inherits(object, "robmixglm"))
     stop("Use only with 'robmixglm' objects.\n")
-  lp <- object$model$X %*% matrix(coef(object),ncol=1) + object$model$offset
+    lp <- object$X %*% matrix(coef(object),ncol=1) + object$offset
   out <- switch (
     object$family,
     gaussian = lp,
@@ -9,7 +9,7 @@ fitted.robmixglm <- function(object, ...) {
     poisson = exp(lp),
     gamma = exp(lp),
     truncpoisson = exp(lp),
-    negbinom = exp(lp)
+    nbinom = exp(lp)
   )
   return(out)
 }

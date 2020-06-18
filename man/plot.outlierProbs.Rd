@@ -4,10 +4,10 @@
 Plot outlier probabilities.
 }
 \description{
-Plots the outlier probability for each observation, from an outlierProbs object.
+Plots the outlier probability for each observation,  from an outlierProbs object.
 }
 \usage{
-\method{plot}{outlierProbs}(x, ...)
+\method{plot}{outlierProbs}(x,  ...)
 }
 \arguments{
   \item{x}{
@@ -23,9 +23,10 @@ Plot
 Ken Beath <ken.beath@mq.edu.au>
 }
 \examples{
+\donttest{
 library(MASS)
 data(forbes)
-forbes.robustmix <- robmixglm(bp~pres,data=forbes)
+forbes.robustmix <- robmixglm(bp~pres, data = forbes, cores = 1)
 plot(outlierProbs(forbes.robustmix))
-}
+}}
 \keyword{method}

@@ -7,7 +7,7 @@
 Print an outlierTest object.
 }
 \usage{
-\method{print}{outlierTest}(x, \ldots)
+\method{print}{outlierTest}(x,  \ldots)
 }
 \arguments{
   \item{x}{outlierTest object}
@@ -17,9 +17,9 @@ Print an outlierTest object.
 \donttest{
 library(MASS)
 data(forbes)
-forbes.robustmix <- robmixglm(bp~pres,data=forbes)
+forbes.robustmix <- robmixglm(bp~pres, data = forbes, cores = 1)
 summary(forbes.robustmix)
-print(outlierTest(forbes.robustmix))
+print(outlierTest(forbes.robustmix,  cores  =  1))
 }
 }
 \author{Ken Beath}

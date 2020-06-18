@@ -6,7 +6,7 @@
 Returns coefficients for a robmixglm object. Only the coefficients for the linear part of the model are returned. Additional coefficients may be obtained using summary().
 }
 \usage{
-\method{coef}{robmixglm}(object, \ldots)
+\method{coef}{robmixglm}(object,  \ldots)
 }
 \arguments{
   \item{object}{robmixglm object}
@@ -16,10 +16,11 @@ Returns coefficients for a robmixglm object. Only the coefficients for the linea
 coef
 }
 \examples{
+\donttest{
 library(MASS)
 data(forbes)
-forbes.robustmix <- robmixglm(bp~pres,data=forbes)
+forbes.robustmix <- robmixglm(bp~pres, data = forbes, cores = 1)
 coef(forbes.robustmix)
-}
+}}
 \author{Ken Beath}
 \keyword{methods}

@@ -39,7 +39,7 @@ return ll;
 }
 
 // [[Rcpp::export]]
-NumericVector llrandnegbinomcpp(NumericVector y, NumericVector lp, NumericVector tau2,  NumericVector theta, NumericMatrix gh) {
+NumericVector llrandnbinomcpp(NumericVector y, NumericVector lp, NumericVector tau2,  NumericVector theta, NumericMatrix gh) {
   
   int nquad=gh.nrow();
   int nobs=y.size();

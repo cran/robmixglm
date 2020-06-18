@@ -5,7 +5,7 @@
 Returns BIC for a robmixglm object.
 }
 \usage{
-\method{BIC}{robmixglm}(object, \ldots)
+\method{BIC}{robmixglm}(object,  \ldots)
 }
 \arguments{
   \item{object}{robmixglm object}
@@ -15,10 +15,11 @@ Returns BIC for a robmixglm object.
 BIC
 }
 \examples{
+\donttest{
 library(MASS)
 data(forbes)
-forbes.robustmix <- robmixglm(bp~pres,data=forbes)
+forbes.robustmix <- robmixglm(bp~pres, data = forbes, cores = 1)
 BIC(forbes.robustmix)
-}
+}}
 \author{Ken Beath}
 \keyword{methods}

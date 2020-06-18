@@ -1,4 +1,4 @@
-gaussian.outlierTest.robmixglm <- function(object, R, showProgress) {
+gaussian.outlierTest.robmixglm <- function(object, R, parallel, cores) {
   
   gaussian.rg <- function(data, mle) {
     
@@ -15,19 +15,14 @@ gaussian.outlierTest.robmixglm <- function(object, R, showProgress) {
     thesd <- sqrt(gaussian.mle2$deviance/gaussian.mle2$df.residual)
     # starting values assume 50% outliers and tau^2 of 1
     starting.values <- c(coef(gaussian.mle2)[1:length(coef(gaussian.mle2))],log(0.2/(1-0.2)),1,thesd)
-    if (showProgress) {
-      pinterval <- R %/% 40
-      if (pinterval < 1)  pinterval <- 1
-      if (((fitno %% pinterval)==0) | (fitno==R)) setTxtProgressBar(pb, fitno)
-    }
     if (fitno==1) mixfit <- suppressWarnings(gaussian.fit.robmixglm(thedata$X, thedata$Y, 
                                        offset = thedata$offset,gh = norm.gauss.hermite(object$quadpoints),
                                        notrials=object$notrials, EMTol = object$EMTol, calcHessian=FALSE,
-                                       verbose=FALSE, starting.values=NULL))
+                                       verbose=FALSE, starting.values=NULL, cores=1))
      else mixfit <- suppressWarnings(gaussian.fit.robmixglm(thedata$X, thedata$Y, 
                                        offset = thedata$offset,gh = norm.gauss.hermite(object$quadpoints),
                                        notrials=object$notrials, EMTol = object$EMTol, calcHessian=FALSE,
-                                       verbose=FALSE, starting.values=starting.values))
+                                       verbose=FALSE, starting.values=starting.values, cores=1))
     lp <- thedata$X %*% matrix(gaussian.mle2$coefficients,ncol=1) + thedata$offset
     gaussian.loglik <- sum(dnorm(thedata$Y,mean=lp,sd=thesd,log=TRUE))
     sim.chisq <- 2*(mixfit$logLik-gaussian.loglik)
@@ -36,21 +31,20 @@ gaussian.outlierTest.robmixglm <- function(object, R, showProgress) {
   }
   
   # fit glm to data
-  gaussian.mle <- glm.fit(object$model$X, object$model$Y, 
-                          offset = object$model$offset, family = gaussian())
+  gaussian.mle <- glm.fit(object$X, object$Y, 
+                          offset = object$offset, family = gaussian())
   
-  thedata <- list(X=object$model$X,Y=object$model$Y,offset=object$model$offset,mle=gaussian.mle)
+  thedata <- list(X=object$X,Y=object$Y,offset=object$offset,mle=gaussian.mle)
   fitno <- 1
-  if (showProgress) pb <- txtProgressBar(width=40,min=0,max=R,style=3)
   gaussian.boot <- boot(thedata, gaussian.fun, R, sim="parametric",
-                        ran.gen = gaussian.rg, mle=gaussian.mle)
-  if (showProgress)  close(pb)
+                        ran.gen = gaussian.rg, mle=gaussian.mle,parallel=parallel,
+                        ncpus = cores)
   return(list(pos=sum(gaussian.boot$t[,1]>gaussian.boot$t0[1]),R=R,nullstat=gaussian.boot$t[,1]))
 }
 
-negbinom.outlierTest.robmixglm <- function(object, R, showProgress) {
+nbinom.outlierTest.robmixglm <- function(object, R, parallel, cores) {
   
-  negbinom.rg <- function(data, mle) {
+  nbinom.rg <- function(data, mle) {
     
     # calculate linear predictor
     lp <- data$X %*% matrix(mle$coefficients,ncol=1) + data$offset
@@ -59,73 +53,67 @@ negbinom.outlierTest.robmixglm <- function(object, R, showProgress) {
     return(data)
   }
   
-  negbinom.fun <- function(data) {
+  nbinom.fun <- function(data) {
     thedata <- data.frame(data$X,data$Y)
     
-    if (dim(object$model$X)[2]>2) theformula <- paste(names(thedata)[2:dim(object$model$X)[2]],"+",sep='',collapse="")
+    if (dim(object$X)[2]>2) theformula <- paste(names(thedata)[2:dim(object$X)[2]],"+",sep='',collapse="")
     else theformula <- "1+"
     
-    if(!is.null(offset)) thedata <- data.frame(thedata,offset=object$model$offset)
+    if(!is.null(offset)) thedata <- data.frame(thedata,offset=object$offset)
     
     theformula <- substr(theformula,1,nchar(theformula)-1)
     
-    if(!is.null(object$model$offset)) donegbin <- paste("negbinom.mle <- glm.nb(object.model.Y~",theformula,"+offset(offset),",
+    if(!is.null(object$offset)) donegbin <- paste("nbinom.mle <- glm.nb(object.Y~",theformula,"+offset(offset),",
                                                         "data=thedata)",sep='',collapse='')
-    else donegbin <- paste("negbinom.mle <- glm.nb(object.model.Y~",theformula,",",
+    else donegbin <- paste("nbinom.mle <- glm.nb(object.Y~",theformula,",",
                            "data=thedata)",sep='',collapse='')
     
     eval(parse(text=donegbin))
-    thetheta <-  negbinom.mle$theta
+    thetheta <-  nbinom.mle$theta
 
     # starting values assume 50% outliers and tau^2 of 1
-    starting.values <- c(coef(negbinom.mle)[1:length(coef(negbinom.mle))],log(0.2/(1-0.2)),1,thetheta)
-    if (showProgress) {
-      pinterval <- R %/% 40
-      if (pinterval < 1)  pinterval <- 1
-      if (((fitno %% pinterval)==0) | (fitno==R)) setTxtProgressBar(pb, fitno)
-    }
-    if (fitno==1) mixfit <- suppressWarnings(negbinom.fit.robmixglm(data$X, data$Y, 
+    starting.values <- c(coef(nbinom.mle)[1:length(coef(nbinom.mle))],log(0.2/(1-0.2)),1,thetheta)
+    if (fitno==1) mixfit <- suppressWarnings(nbinom.fit.robmixglm(data$X, data$Y, 
                                        offset = data$offset,gh = norm.gauss.hermite(object$quadpoints),
                                        notrials=object$notrials, EMTol = object$EMTol, calcHessian=FALSE,
-                                       verbose=object$verbose, starting.values=NULL))
-     else mixfit <- suppressWarnings(negbinom.fit.robmixglm(data$X, data$Y, 
+                                       verbose=object$verbose, starting.values=NULL, cores=1))
+     else mixfit <- suppressWarnings(nbinom.fit.robmixglm(data$X, data$Y, 
                                        offset = data$offset,gh = norm.gauss.hermite(object$quadpoints),
                                        notrials=object$notrials, EMTol = object$EMTol, calcHessian=FALSE,
-                                       verbose=object$verbose, starting.values=starting.values))
-    lp <- data$X %*% matrix(negbinom.mle2$coefficients,ncol=1) + data$offset
-    negbinom.loglik <- sum(dnbinom(thedata$Y,mu=lp,size=thetheta,log=TRUE))
-    sim.chisq <- 2*(mixfit$logLik-negbinom.loglik)
+                                       verbose=object$verbose, starting.values=starting.values, cores=1))
+    lp <- data$X %*% matrix(nbinom.mle2$coefficients,ncol=1) + data$offset
+    nbinom.loglik <- sum(dnbinom(thedata$Y,mu=lp,size=thetheta,log=TRUE))
+    sim.chisq <- 2*(mixfit$logLik-nbinom.loglik)
     fitno <<- fitno+1
     return(sim.chisq)
   }
   #stop("Not implemented yet")
   # fit glm to data
-  thedata <- data.frame(object$model$X,object$model$Y)
+  thedata <- data.frame(object$X,object$Y)
   
-  if (dim(object$model$X)[2]>2) theformula <- paste(names(thedata)[2:dim(object$model$X)[2]],"+",sep='',collapse="")
+  if (dim(object$X)[2]>2) theformula <- paste(names(thedata)[2:dim(object$X)[2]],"+",sep='',collapse="")
   else theformula <- "1+"
   
-  if(!is.null(offset)) thedata <- data.frame(thedata,offset=object$model$offset)
+  if(!is.null(offset)) thedata <- data.frame(thedata,offset=object$offset)
   
   theformula <- substr(theformula,1,nchar(theformula)-1)
   
-  if(!is.null(object$model$offset)) donegbin <- paste("negbinom.mle <- glm.nb(object.model.Y~",theformula,"+offset(offset),",
+  if(!is.null(object$offset)) donegbin <- paste("nbinom.mle <- glm.nb(object.Y~",theformula,"+offset(offset),",
                                                      "data=thedata)",sep='',collapse='')
-  else donegbin <- paste("negbinom.mle <- glm.nb(object.model.Y~",theformula,",",
+  else donegbin <- paste("nbinom.mle <- glm.nb(object.Y~",theformula,",",
                         "data=thedata)",sep='',collapse='')
   
   eval(parse(text=donegbin))
-  thedata <- list(X=object$model$X,Y=object$model$Y,offset=object$model$offset,mle=negbin.mle)
+  thedata <- list(X=object$X,Y=object$Y,offset=object$offset,mle=negbin.mle)
   fitno <- 1
-  if (showProgress) pb <- txtProgressBar(width=40,min=0,max=R,style=3)
-  negbinom.boot <- boot(thedata, negbinom.fun, R, sim="parametric",
-                        ran.gen = negbinom.rg, mle=negbinom.mle)
-  if (showProgress) close(pb)
-  return(list(pos=sum(negbinom.boot$t[,1]>negbinom.boot$t0[1]),R=R,nullstat=negbinom.boot$t[,1]))
+  nbinom.boot <- boot(thedata, nbinom.fun, R, sim="parametric",
+                        ran.gen = nbinom.rg, mle=nbinom.mle,parallel=parallel,
+                      ncpus = cores)
+  return(list(pos=sum(nbinom.boot$t[,1]>nbinom.boot$t0[1]),R=R,nullstat=nbinom.boot$t[,1]))
 }
 
 
-gamma.outlierTest.robmixglm <- function(object, R, showProgress) {
+gamma.outlierTest.robmixglm <- function(object, R, parallel, cores) {
   
   gamma.rg <- function(data, mle) {
     
@@ -141,19 +129,14 @@ gamma.outlierTest.robmixglm <- function(object, R, showProgress) {
                           offset = thedata$offset, family = Gamma(link="log"))
     # starting values assume 50% outliers and tau^2 of 1
     starting.values <- c(coef(gamma.mle2)[1:length(coef(gamma.mle2))],log(0.5/(1-0.5)),1,sum(gamma.mle2$residuals^2)/gamma.mle2$df.residual)
-    if (showProgress) {
-      pinterval <- R %/% 40
-      if (pinterval < 1)  pinterval <- 1
-      if (((fitno %% pinterval)==0) | (fitno==R)) setTxtProgressBar(pb, fitno)
-    }
     if (fitno==1)  mixfit <- suppressWarnings(gamma.fit.robmixglm(thedata$X, thedata$Y, 
                                     offset = thedata$offset,gh = norm.gauss.hermite(object$quadpoints),
                                     notrials=object$notrials, EMTol = object$EMTol, calcHessian=FALSE,
-                                    verbose=FALSE, starting.values=NULL))
+                                    verbose=FALSE, starting.values=NULL, cores=1))
      else mixfit <- suppressWarnings(gamma.fit.robmixglm(thedata$X, thedata$Y, 
                                     offset = thedata$offset,gh = norm.gauss.hermite(object$quadpoints),
                                     notrials=object$notrials, EMTol = object$EMTol, calcHessian=FALSE,
-                                    verbose=FALSE, starting.values=starting.values))
+                                    verbose=FALSE, starting.values=starting.values, cores=1))
     lp <- thedata$X %*% matrix(gamma.mle2$coefficients,ncol=1) + thedata$offset
     phi <- sum(gamma.mle2$residuals^2)/gamma.mle2$df.residual
     gamma.loglik <- sum(dgamma(thedata$Y,shape=1.0/phi,rate=1.0/(phi*exp(lp)),log=TRUE))
@@ -163,20 +146,19 @@ gamma.outlierTest.robmixglm <- function(object, R, showProgress) {
   }
   
   # fit glm to data
-  gamma.mle <- glm.fit(object$model$X, object$model$Y, 
-                       offset = object$model$offset, family = Gamma(link="log"))
+  gamma.mle <- glm.fit(object$X, object$Y, 
+                       offset = object$offset, family = Gamma(link="log"))
   
   
-  thedata <- list(X=object$model$X,Y=object$model$Y,offset=object$model$offset,mle=gamma.mle)
+  thedata <- list(X=object$X,Y=object$Y,offset=object$offset,mle=gamma.mle)
   fitno <- 1
-  if (showProgress) pb <- txtProgressBar(width=40,min=0,max=R,style=3)
   gamma.boot <- boot(thedata, gamma.fun, R, sim="parametric",
-                        ran.gen = gamma.rg, mle=gamma.mle)
-  if (showProgress) close(pb)
+                        ran.gen = gamma.rg, mle=gamma.mle, parallel=parallel,
+                     ncpus = cores)
   return(list(pos=sum(gamma.boot$t[,1]>gamma.boot$t0[1]),R=R,nullstat=gamma.boot$t[,1]))
 }
 
-truncpoisson.outlierTest.robmixglm <- function(object, R, showProgress) {
+truncpoisson.outlierTest.robmixglm <- function(object, R, parallel, cores) {
   
   truncpoisson.rg <- function(data, mle) {
     
@@ -196,7 +178,7 @@ truncpoisson.outlierTest.robmixglm <- function(object, R, showProgress) {
     
     theformula <- substr(theformula,1,nchar(theformula)-1)
     
-    if(!is.null(object$model$offset)) dotrunc <- paste("truncpoisson.mle2 <- vglm(data.Y~",theformula,",",
+    if(!is.null(object$offset)) dotrunc <- paste("truncpoisson.mle2 <- vglm(data.Y~",theformula,",",
                                                        "family=pospoisson, offset=offset,",
                                                        "data=thedata)",sep='',collapse='')
     else dotrunc <- paste("truncpoisson.mle2 <- vglm(data.Y~",theformula,",",
@@ -207,19 +189,14 @@ truncpoisson.outlierTest.robmixglm <- function(object, R, showProgress) {
       
     # starting values assume 50% outliers and tau^2 of 1
     starting.values <- c(coef(truncpoisson.mle2)[1:length(coef(truncpoisson.mle2))],log(0.5/(1-0.5)),1)
-    if (showProgress) {
-      pinterval <- R %% 100
-      if (pinterval < 1)  pinterval <- 1
-      if (((fitno %% pinterval)==0) | (fitno==R)) setTxtProgressBar(pb, fitno)
-    }
     if (fitno==1) mixfit <- suppressWarnings(truncpoisson.fit.robmixglm(data$X, data$Y, 
                                            offset = thedata$offset,gh = norm.gauss.hermite(object$quadpoints),
                                            notrials=object$notrials, EMTol = object$EMTol, calcHessian=FALSE,
-                                           verbose=object$verbose, starting.values=NULL))
+                                           verbose=object$verbose, starting.values=NULL, cores=1))
     else mixfit <- suppressWarnings(truncpoisson.fit.robmixglm(data$X, data$Y, 
                                            offset = thedata$offset,gh = norm.gauss.hermite(object$quadpoints),
                                            notrials=object$notrials, EMTol = object$EMTol, calcHessian=FALSE,
-                                           verbose=object$verbose, starting.values=starting.values))
+                                           verbose=object$verbose, starting.values=starting.values, cores=1))
     lp <- data$X %*% matrix(truncpoisson.mle2@coefficients,ncol=1) + data$offset
     truncpoisson.loglik <- sum(dztpois(data$Y,exp(lp),log=TRUE))
     sim.chisq <- 2*(mixfit$logLik-truncpoisson.loglik)
@@ -228,37 +205,36 @@ truncpoisson.outlierTest.robmixglm <- function(object, R, showProgress) {
   }
   
   # fit glm to data
-  thedata <- data.frame(object$model$X,object$model$Y)
+  thedata <- data.frame(object$X,object$Y)
 
-  if (dim(object$model$X)[2]>2) theformula <- paste(names(thedata)[2:dim(object$model$X)[2]],"+",sep='',collapse="")
+  if (dim(object$X)[2]>2) theformula <- paste(names(thedata)[2:dim(object$X)[2]],"+",sep='',collapse="")
   else theformula <- "1+"
   
-  if(!is.null(offset)) thedata <- data.frame(thedata,offset=object$model$offset)
+  if(!is.null(offset)) thedata <- data.frame(thedata,offset=object$offset)
   
   theformula <- substr(theformula,1,nchar(theformula)-1)
   
-  if(!is.null(object$model$offset)) dotrunc <- paste("truncpoisson.mle2 <- vglm(object.model.Y~",theformula,",",
+  if(!is.null(object$offset)) dotrunc <- paste("truncpoisson.mle2 <- vglm(object.Y~",theformula,",",
                                         "family=pospoisson, offset=offset,",
                                         "data=thedata)",sep='',collapse='')
-  else dotrunc <- paste("truncpoisson.mle2 <- vglm(object.model.Y~",theformula,",",
+  else dotrunc <- paste("truncpoisson.mle2 <- vglm(object.Y~",theformula,",",
                         "family=pospoisson,",
                         "data=thedata)",sep='',collapse='')
   
   eval(parse(text=dotrunc))
   fitno <- 1
   
-  if (showProgress) pb <- txtProgressBar(width=40,min=0,max=R,style=3)
-  thedata <- list(X=object$model$X,Y=object$model$Y,offset=object$model$offset,mle=truncpoisson.mle2)
+  thedata <- list(X=object$X,Y=object$Y,offset=object$offset,mle=truncpoisson.mle2)
   
   truncpoisson.boot <- boot(thedata, truncpoisson.fun, R, sim="parametric",
-                            ran.gen = truncpoisson.rg, mle=truncpoisson.mle2)
-  if (showProgress) close(pb)
+                            ran.gen = truncpoisson.rg, mle=truncpoisson.mle2, parallel=parallel,
+                            ncpus = cores)
   return(list(pos=sum(truncpoisson.boot$t[,1]>truncpoisson.boot$t0[1]),R=R,nullstat=truncpoisson.boot$t[,1]))
 }
 
 
 
-poisson.outlierTest.robmixglm <- function(object, R, showProgress) {
+poisson.outlierTest.robmixglm <- function(object, R, parallel, cores) {
 
     poisson.rg <- function(data, mle) {
       
@@ -273,19 +249,14 @@ poisson.outlierTest.robmixglm <- function(object, R, showProgress) {
                               offset = thedata$offset, family = poisson())
       # starting values assume 50% outliers and tau^2 of 1
       starting.values <- c(coef(poisson.mle2)[1:length(coef(poisson.mle2))],log(0.5/(1-0.5)),1)
-      if (showProgress) {
-        pinterval <- R %/% 40
-        if (pinterval < 1)  pinterval <- 1
-        if (((fitno %% pinterval)==0) | (fitno==R)) setTxtProgressBar(pb, fitno)
-      }
       if (fitno==1) mixfit <- suppressWarnings(poisson.fit.robmixglm(thedata$X, thedata$Y, 
                                         offset = thedata$offset,gh = norm.gauss.hermite(object$quadpoints),
                                         notrials=object$notrials, EMTol = object$EMTol, calcHessian=TRUE,
-                                        verbose=object$verbose, starting.values=NULL))
+                                        verbose=object$verbose, starting.values=NULL, cores=1))
       else mixfit <- suppressWarnings(poisson.fit.robmixglm(thedata$X, thedata$Y, 
                                         offset = thedata$offset,gh = norm.gauss.hermite(object$quadpoints),
                                         notrials=object$notrials, EMTol = object$EMTol, calcHessian=FALSE,
-                                        verbose=object$verbose, starting.values=starting.values))
+                                        verbose=object$verbose, starting.values=starting.values, cores=1))
       lp <- thedata$X %*% matrix(poisson.mle2$coefficients,ncol=1) + thedata$offset
       poisson.loglik <- sum(dpois(thedata$Y,exp(lp),log=TRUE))
       sim.chisq <- 2*(mixfit$logLik-poisson.loglik)
@@ -294,20 +265,19 @@ poisson.outlierTest.robmixglm <- function(object, R, showProgress) {
     }
     
     # fit glm to data
-  poisson.mle <- glm.fit(object$model$X, object$model$Y, 
-                         offset = object$model$offset, family = poisson())
+  poisson.mle <- glm.fit(object$X, object$Y, 
+                         offset = object$offset, family = poisson())
   
  
-  thedata <- list(X=object$model$X,Y=object$model$Y,offset=object$model$offset,mle=poisson.mle)
+  thedata <- list(X=object$X,Y=object$Y,offset=object$offset,mle=poisson.mle)
   fitno <- 1
-  if (showProgress) pb <- txtProgressBar(width=40,min=0,max=R,style=3)
   poisson.boot <- boot(thedata, poisson.fun, R, sim="parametric",
-                       ran.gen = poisson.rg, mle=poisson.mle)
-  if (showProgress) close(pb)
+                       ran.gen = poisson.rg, mle=poisson.mle, parallel=parallel,
+                       ncpus = cores)
   return(list(pos=sum(poisson.boot$t[,1]>poisson.boot$t0[1]),R=R,nullstat=poisson.boot$t[,1]))
 }
 
-binomial.outlierTest.robmixglm <- function(object, R, showProgress) {
+binomial.outlierTest.robmixglm <- function(object, R, parallel, cores) {
   
   binomial.rg <- function(data, mle) {
     # calculate linear predictor
@@ -321,20 +291,15 @@ binomial.outlierTest.robmixglm <- function(object, R, showProgress) {
   binomial.fun <- function(thedata) {
     binomial.mle2 <- glm.fit(thedata$X, thedata$Y,
                              offset = thedata$offset, family = binomial())
-     if (showProgress) {
-       pinterval <- R %/% 40
-       if (pinterval < 1)  pinterval <- 1
-       if (((fitno %% pinterval)==0) | (fitno==R)) setTxtProgressBar(pb, fitno)
-     }
     starting.values <- c(coef(binomial.mle2),log(0.5/(1-0.5)),1)
     if (fitno==1) mixfit <- suppressWarnings(binomial.fit.robmixglm(thedata$X, thedata$Y,
                                        offset = thedata$offset,gh = norm.gauss.hermite(object$quadpoints),
                                        notrials=object$notrials, EMTol = object$EMTol, calcHessian=FALSE,
-                                       verbose=FALSE, starting.values=NULL))
+                                       verbose=FALSE, starting.values=NULL, cores=1))
     else mixfit <- suppressWarnings(binomial.fit.robmixglm(thedata$X, thedata$Y,
                                        offset = thedata$offset,gh = norm.gauss.hermite(object$quadpoints),
                                        notrials=object$notrials, EMTol = object$EMTol, calcHessian=FALSE,
-                                       verbose=FALSE, starting.values=starting.values))
+                                       verbose=FALSE, starting.values=starting.values, cores=1))
     lp <- thedata$X %*% matrix(binomial.mle2$coefficients,ncol=1) + thedata$offset
     binomial.loglik <- sum(dbinom(thedata$Y[,1],thedata$Y[,1]+thedata$Y[,2],1.0/(1.0+exp(-lp)),log=TRUE))
      sim.chisq <- 2*(mixfit$logLik-binomial.loglik)
@@ -343,35 +308,38 @@ binomial.outlierTest.robmixglm <- function(object, R, showProgress) {
   }
   
   # fit glm to data
-  binomial.mle <- glm.fit(object$model$X, object$model$Y,
-                          offset = object$model$offset, family = binomial())
+  binomial.mle <- glm.fit(object$X, object$Y,
+                          offset = object$offset, family = binomial())
   
   
-  thedata <- list(X=object$model$X,Y=object$model$Y,offset=object$model$offset,mle=binomial.mle)
+  thedata <- list(X=object$X,Y=object$Y,offset=object$offset,mle=binomial.mle)
   fitno <- 1
-  if (showProgress) pb <- txtProgressBar(width=40,min=0,max=R,style=3)
   binomial.boot <- boot(thedata, binomial.fun, R, sim="parametric",
-                       ran.gen = binomial.rg, mle=binomial.mle)
-  if (showProgress) close(pb)
+                       ran.gen = binomial.rg, mle=binomial.mle, parallel=parallel,
+                       ncpus = cores)
   return(list(pos=sum(binomial.boot$t[,1]>binomial.boot$t0[1]),R=R,nullstat=binomial.boot$t[,1]))
 }
 
 outlierTest <-
   ## Short form for generic function
-  function(object, R = 999, showProgress = TRUE)
+  function(object, R = 999, cores = max(detectCores() - 1, 1))
     UseMethod("outlierTest")
 
-outlierTest.robmixglm <- function(object, R = 999, showProgress = TRUE) {
+outlierTest.robmixglm <- function(object, R = 999, cores = max(detectCores() - 1, 1)) {
   if (!inherits(object, "robmixglm"))
     stop("Use only with 'robmixglm' objects.\n")
+  if (cores>1) {
+    if(.Platform$OS.type=="unix") parallel <- "multicore"
+    else parallel <- "snow"
+  } else parallel <- "no"
   out <- switch (
     object$family,
-    gaussian = gaussian.outlierTest.robmixglm(object, R, showProgress),
-    binomial = binomial.outlierTest.robmixglm(object, R, showProgress),
-    poisson = poisson.outlierTest.robmixglm(object, R, showProgress),
-    gamma = gamma.outlierTest.robmixglm(object, R, showProgress),
-    truncpoisson = truncpoisson.outlierTest.robmixglm(object, R, showProgress),
-    negbinom = negbinom.outlierTest.robmixglm(object, R, showProgress)
+    gaussian = gaussian.outlierTest.robmixglm(object, R, parallel, cores),
+    binomial = binomial.outlierTest.robmixglm(object, R, parallel, cores),
+    poisson = poisson.outlierTest.robmixglm(object, R, parallel, cores),
+    gamma = gamma.outlierTest.robmixglm(object, R, parallel, cores),
+    truncpoisson = truncpoisson.outlierTest.robmixglm(object, R, parallel, cores),
+    nbinom = nbinom.outlierTest.robmixglm(object, R, parallel, cores)
   )
   class(out) <- "outlierTest"
   return(out)

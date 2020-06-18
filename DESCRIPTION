@@ -1,8 +1,8 @@
 Package: robmixglm
 Type: Package
 Title: Robust Generalized Linear Models (GLM) using Mixtures
-Version: 1.0-4
-Date: 2020-04-16
+Version: 1.1-0
+Date: 2020-06-18
 Authors@R: c(person("Ken","Beath",email="ken.beath@mq.edu.au", role=c("aut","cre")))
 Maintainer: Ken Beath <ken.beath@mq.edu.au>
 Contact: Ken Beath <ken.beath@mq.edu.au>
@@ -12,12 +12,13 @@ Depends: R(>= 3.2.0)
 Suggests: R.rsp, robustbase, lattice, forward
 VignetteBuilder: R.rsp
 Imports: fastGHQuad, stats, bbmle, MASS, VGAM, actuar, Rcpp (>=
-        0.12.15), methods, boot, numDeriv
+        0.12.15), methods, boot, numDeriv, parallel, doParallel,
+        foreach, doRNG
 LazyLoad: yes
 LazyData: yes
 NeedsCompilation: yes
 License: GPL (>= 2)
 LinkingTo: Rcpp
-Packaged: 2020-04-17 00:22:40 UTC; kjbeath1
+Packaged: 2020-06-18 04:17:30 UTC; kjbeath1
 Repository: CRAN
-Date/Publication: 2020-04-17 10:40:02 UTC
+Date/Publication: 2020-06-18 05:10:03 UTC

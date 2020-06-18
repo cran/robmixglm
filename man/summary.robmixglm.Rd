@@ -5,7 +5,7 @@
 Returns summary for a robmixglm object.
 }
 \usage{
-\method{summary}{robmixglm}(object, \ldots)
+\method{summary}{robmixglm}(object,  \ldots)
 }
 \arguments{
   \item{object}{robmixglm object}
@@ -15,10 +15,11 @@ Returns summary for a robmixglm object.
 summary
 }
 \examples{
+\donttest{
 library(MASS)
 data(forbes)
-forbes.robustmix <- robmixglm(bp~pres,data=forbes)
+forbes.robustmix <- robmixglm(bp~pres, data = forbes, cores = 1)
 summary(forbes.robustmix)
-}
+}}
 \author{Ken Beath}
 \keyword{methods}

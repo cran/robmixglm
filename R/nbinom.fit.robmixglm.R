@@ -1,4 +1,4 @@
-negbinom.fit.robmixglm <- function(x,y,offset,gh,notrials,EMTol,  calcHessian=TRUE, verbose, starting.values=NULL) {
+nbinom.fit.robmixglm <- function(x,y,offset,gh,notrials,EMTol,  calcHessian=TRUE, cores, verbose,  starting.values=NULL) {
   
   if (!is.null(starting.values)) notrials <- 1
 
@@ -12,7 +12,7 @@ negbinom.fit.robmixglm <- function(x,y,offset,gh,notrials,EMTol,  calcHessian=TR
       if(!is.null(offset)) lp <- lp+offset
 
       lp1 <-  dnbinom(y, mu=exp(lp), size=theta, log=TRUE)
-      lp2 <- llrandnegbinomcpp(y, lp, tau2, theta, gh)
+      lp2 <- llrandnbinomcpp(y, lp, tau2, theta, gh)
       
       if (!missing(prop)) {
         ll <- prop*cbind(lp1,lp2)
@@ -45,19 +45,19 @@ negbinom.fit.robmixglm <- function(x,y,offset,gh,notrials,EMTol,  calcHessian=TR
       theformula <- substr(theformula,1,nchar(theformula)-1)
       
       
-      doprefit <- paste("robust.negbinom.prefit <- glm.nb(y~",theformula,"+offset(offset),",
-                        "subset=(outliers!=1),data=thedata)",sep='',collapse='')
+      doprefit <- paste("suppressWarnings(robust.nbinom.prefit <- glm.nb(y~",theformula,"+offset(offset),",
+                        "subset=(outliers!=1),data=thedata))",sep='',collapse='')
       
       eval(parse(text=doprefit))
       
       # get the starting values
-      prefit.coef <- coef(robust.negbinom.prefit)
+      prefit.coef <- coef(robust.nbinom.prefit)
       # assume 20% outliers as a starting point
       currlpoutlier <- log(0.2/(1-0.2))
       currxcoef <- matrix(prefit.coef[1:(length(prefit.coef))],ncol=1)
       currxcoef <- ifelse(is.na(currxcoef),0,currxcoef)
       currtau2 <- min(rgamma(1,2,1),5)
-      currtheta <- robust.negbinom.prefit$theta
+      currtheta <- robust.nbinom.prefit$theta
     } else
     {
       currxcoef <- matrix(starting.values[1:(length(starting.values)-3)],ncol=1)
@@ -79,7 +79,7 @@ negbinom.fit.robmixglm <- function(x,y,offset,gh,notrials,EMTol,  calcHessian=TR
       if (!is.null(offset)) lp <- lp+offset
       
       ll1 <- dnbinom(y, mu=exp(lp), size=currtheta, log=TRUE)+log(1-currpoutlier) 
-      ll2 <- llrandnegbinomcpp(y, lp, currtau2, currtheta, gh)+log(currpoutlier)
+      ll2 <- llrandnbinomcpp(y, lp, currtau2, currtheta, gh)+log(currpoutlier)
       
       ll <- cbind(ll1,ll2)
       prop <- t(apply(ll,1,function(x) {
@@ -96,6 +96,8 @@ negbinom.fit.robmixglm <- function(x,y,offset,gh,notrials,EMTol,  calcHessian=TR
       startvals <- c(currxcoef,currtau2,currtheta)
       names(startvals) <- c(dimnames(x)[[2]],"tau2","theta")
       
+      #browser()
+      
       results.nlm <- suppressWarnings(nlminb(startvals,optimrlreg,
                             lower=c(rep(-Inf,length(currxcoef)),0,0),
                             #control=list(trace=1,iter.max=10),
@@ -104,6 +106,9 @@ negbinom.fit.robmixglm <- function(x,y,offset,gh,notrials,EMTol,  calcHessian=TR
                             prop=prop,
                             y=y,x=x,offset=offset,
                             fixed=fixed))
+      
+      #browser()
+      
       currxcoef <- matrix(as.numeric(results.nlm$par)[1:(length(results.nlm$par)-2)],ncol=1)
       currtau2 <- as.numeric(results.nlm$par)[length(results.nlm$par)-1]
       currtheta <- as.numeric(results.nlm$par)[length(results.nlm$par)]
@@ -130,7 +135,7 @@ negbinom.fit.robmixglm <- function(x,y,offset,gh,notrials,EMTol,  calcHessian=TR
     if (!is.null(offset)) lp <- lp+offset
     
     ll1 <- dnbinom(y, mu=exp(lp), size=theta, log=TRUE)+log(1-poutlier)
-    ll2 <- llrandnegbinomcpp(y, lp, tau2, theta, gh)+log(poutlier)
+    ll2 <- llrandnbinomcpp(y, lp, tau2, theta, gh)+log(poutlier)
     
     l <- exp(cbind(ll1,ll2))
     negll <- -sum(log(apply(l,1,sum)))
@@ -138,26 +143,45 @@ negbinom.fit.robmixglm <- function(x,y,offset,gh,notrials,EMTol,  calcHessian=TR
     if (!is.finite(negll)) negll <- NA
     return(negll)
   }
+    if (!exists(".Random.seed", envir = .GlobalEnv, inherits = FALSE)) runif(1)
+    seed <- get(".Random.seed", envir = .GlobalEnv, inherits = FALSE)
   
   if (is.null(starting.values)) {
-    maxll <- -Inf
-    
-    for (i in 1:notrials) {
-      try({
-        noutliers <- max(1,round(dim(x)[1]*0.2))
-        outliers <- sample(c(rep(1,noutliers),rep(0,dim(x)[1]-noutliers)),dim(x)[1])
-        thefit <- fitonemlreg(y,outliers,x,offset,fixed=NULL)
-        if (verbose) print(c(thefit$ll,thefit$start.val))
-        if (thefit$ll>maxll) {
-          maxll <- thefit$ll
-          start.val <- thefit$start.val
-        }}
-      )
-      if (!is.finite(maxll)) stop("No starting values found") 
+    if (cores > 1) {
+      cl = parallel::makeCluster(cores, setup_strategy = "sequential")
+      doParallel::registerDoParallel(cl)
+      res = foreach(i = 1:notrials, 
+                    .options.RNG=seed[1]) %dorng% {
+                      noutliers <- max(1,round(dim(x)[1]*0.2))
+                      outliers <- sample(c(rep(1,noutliers),rep(0,dim(x)[1]-noutliers)),dim(x)[1])
+                      fitonemlreg(y,outliers,x,offset,fixed=NULL)}
+      parallel::stopCluster(cl)
+      maxll <- -Inf
+      for (i in 1:notrials) {
+        if (verbose) print(c(res[[i]]$ll,res[[i]]$start.val))
+        if (res[[i]]$ll>maxll) {
+          maxll <- res[[i]]$ll
+          start.val <- res[[i]]$start.val
+        }
+      }
+    } else {
+      maxll <- -Inf
+      for (i in 1:notrials) {
+        try({
+          noutliers <- max(1,round(dim(x)[1]*0.2))
+          outliers <- sample(c(rep(1,noutliers),rep(0,dim(x)[1]-noutliers)),dim(x)[1])
+          thefit <- fitonemlreg(y,outliers,x,offset,fixed=NULL)
+          if (verbose) print(c(thefit$ll,thefit$start.val))
+          if (thefit$ll>maxll) {
+            maxll <- thefit$ll
+            start.val <- thefit$start.val
+          }
+        }
+        )
+      }
     }
   } else {
-    thefit <- fitonemlreg(y,NULL,x,offset,fixed=NULL)
-    start.val <- thefit$start.val
+    start.val <- starting.values
   }
   
   thenames <- c(dimnames(x)[[2]],"lpoutlier","tau2", "theta")
@@ -175,7 +199,8 @@ negbinom.fit.robmixglm <- function(x,y,offset,gh,notrials,EMTol,  calcHessian=TR
                           optimizer="user",optimfun=myoptim,
                           data=list(y=y,x=x,offset=offset),
                           skip.hessian=TRUE,trace=verbose,
-                          lower=lower.val)
+                          lower=lower.val,
+                          control=if (verbose) list(eval.max=1000,iter.max=1000,trace=5) else list(eval.max=1000,iter.max=1000))
   
   if (calcHessian) {
     thecoef <- coef(robustnbinom.fit)
@@ -197,7 +222,7 @@ negbinom.fit.robmixglm <- function(x,y,offset,gh,notrials,EMTol,  calcHessian=TR
   if (!is.null(offset)) lp <- lp+offset
   
   ll1 <- dnbinom(y, mu=exp(lp), size=theta, log=TRUE)+log(1-poutlier)  
-  ll2 <- llrandnegbinomcpp(y, lp, tau2, theta, gh)+log(poutlier)
+  ll2 <- llrandnbinomcpp(y, lp, tau2, theta, gh)+log(poutlier)
   
   ll <- cbind(ll1,ll2)
   prop <- t(apply(ll,1,function(x) {
