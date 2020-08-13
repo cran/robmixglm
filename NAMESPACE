@@ -27,8 +27,7 @@ importFrom("stats", "dpois", "nlminb", "optimHess", "rbinom", "rgamma", "dbinom"
 importFrom("stats", "Gamma", "binomial", "constrOptim", "gaussian",
              "glm.fit", "poisson", "printCoefmat", "rpois","rnbinom","delete.response")
 importFrom("stats", ".getXlevels", "model.frame")
-
-importFrom("utils", "setTxtProgressBar", "txtProgressBar")
+importFrom("stats", "glm", "lm")
 
 importFrom("MASS", "ginv", "glm.nb")
 importFrom("methods", "signature")

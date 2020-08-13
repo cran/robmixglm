@@ -8,11 +8,9 @@ robmixglm <-
   
   if (missing(family)) family <- "gaussian"
   
-#  if (!(family %in% c("gaussian","binomial","poisson","gamma","truncpoisson")))
-#    stop("Valid families are gaussian, binomial, poisson, gamma, truncpoisson.\n")
+  if (!(family %in% c("gaussian","binomial","poisson","gamma","truncpoisson")))
+    stop("Valid families are gaussian, binomial, poisson, gamma, truncpoisson.\n")
   
-  if (!(family %in% c("gaussian","binomial","poisson","gamma","truncpoisson","nbinom")))
-    stop("Valid families are gaussian, binomial, poisson, gamma, truncpoisson, nbinom.\n")
   
   if (missing(data)) data <- environment(formula)
   
@@ -58,6 +56,11 @@ robmixglm <-
     if (any(!is.wholenumber(Y))) stop("Negative binomial data must be integers.")
   }
   
+  if (verbose & (cores>1)){
+    warning("Setting cores=1 to allow Verbose output")
+    cores <- 1
+  }
+  
   ret <- fit.robmixglm(X,Y,family,offset=offset,gh=norm.gauss.hermite(quadpoints),notrials,EMTol,cores,verbose)
 
   class(ret) <- "robmixglm"
@@ -78,7 +81,6 @@ robmixglm <-
   ret$notrials <- notrials
   ret$EMTol <- EMTol
   ret$verbose <- verbose
-# ??? need to fix manualto reflect returned values
   return(ret)
 }
 

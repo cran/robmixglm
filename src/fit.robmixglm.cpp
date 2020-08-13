@@ -38,35 +38,7 @@ for (int irow=0;irow<nobs;irow++) {
 return ll;
 }
 
-// [[Rcpp::export]]
-NumericVector llrandnbinomcpp(NumericVector y, NumericVector lp, NumericVector tau2,  NumericVector theta, NumericMatrix gh) {
-  
-  int nquad=gh.nrow();
-  int nobs=y.size();
-  
-  NumericVector ll(nobs);
-  NumericVector thevals(nquad);
-  double thel, maxval;
-  
-  for (int irow=0;irow<nobs;irow++) {
-    if (tau2[0]==0.0) ll(irow) = R::dnbinom_mu(y(irow), theta[0], std::exp(lp(irow)), true);
-    else {
-      for (int j=0;j<nquad;j++) {
-        thevals(j)=R::dnbinom_mu(y(irow),theta[0], std::exp(lp(irow)+gh(j,0)*sqrt(tau2[0])),true)+std::log(gh(j,1));
-      }
-      maxval=max(thevals);
-      thel=0.0;
-      for (int j=0;j<nquad;j++) {
-        thel=thel+std::exp(thevals(j)-maxval);
-      }
-      ll(irow) = maxval+std::log(thel);
-    }
-  }
-  return ll;
-}
 
-
-  
 // [[Rcpp::export]]
 NumericVector llrandtruncpoiscpp(NumericVector y, NumericVector lp, NumericVector tau2, NumericMatrix gh) {
     

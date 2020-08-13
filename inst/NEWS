@@ -1,3 +1,13 @@
+Changes in robmixglm version 1.1-1
+  
+  o use multiple cores for determining starting values (if this causes problems then set cores=1)
+
+  o tidied up code for testing outliers
+
+  o improved error handling in outlier test
+
+  o fixed bug in starting values for gaussian models
+
 Changes in robmixglm version 1.1-0
 
   o added predict method

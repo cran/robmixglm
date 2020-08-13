@@ -5,10 +5,6 @@ llrandpoiscpp <- function(y, lp, tau2, gh) {
     .Call(`_robmixglm_llrandpoiscpp`, y, lp, tau2, gh)
 }
 
-llrandnbinomcpp <- function(y, lp, tau2, theta, gh) {
-    .Call(`_robmixglm_llrandnbinomcpp`, y, lp, tau2, theta, gh)
-}
-
 llrandtruncpoiscpp <- function(y, lp, tau2, gh) {
     .Call(`_robmixglm_llrandtruncpoiscpp`, y, lp, tau2, gh)
 }

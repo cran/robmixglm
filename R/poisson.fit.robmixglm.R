@@ -5,9 +5,7 @@ poisson.fit.robmixglm <- function(x,y,offset,gh,notrials,EMTol, calcHessian=TRUE
     rlreg <- function(xcoef,lpoutlier,tau2,x,y,offset,prop) {
       poutlier <- 1.0/(1+exp(-lpoutlier))
       
-      lp <- as.vector(x %*% xcoef)
-      
-      if(!is.null(offset)) lp <- lp+offset
+      lp <- as.vector(x %*% xcoef)+offset
       
       lp1 <- dpois(y, exp(lp), log = TRUE)
       lp2 <- llrandpoiscpp(y, lp, tau2, gh)
@@ -28,30 +26,11 @@ poisson.fit.robmixglm <- function(x,y,offset,gh,notrials,EMTol, calcHessian=TRUE
       p[names(fixed)] <- fixed
       return(rlreg(matrix(p[1:(length(p)-1)],ncol=1),lpoutlier,p[length(p)],x,y,offset,prop))
     }
-    
-    #browser()
-    
-    thedata <- data.frame(y,x)
-    
-    lastdata=length(names(thedata))
-    if(!is.null(offset)) thedata <- data.frame(thedata,offset=offset)
-    
-    # fit first with glm
-    # get the starting values
-    if (is.null(starting.values)) {
-      
-    if (lastdata>2) theformula <- paste(names(thedata)[3:lastdata],"+",sep='',collapse="")
-    else theformula <- "1+"
-    
-    theformula <- substr(theformula,1,nchar(theformula)-1)
-    
-    
-    doprefit <- paste("robust.poisson.prefit <- glm(y~",
-            theformula,",",
-            "family=poisson(), offset=offset,subset=(outliers!=1),
-            data=thedata)",sep='',collapse='')
-    eval(parse(text=doprefit))
-    
+        
+    tryCatch({
+      if (is.null(starting.values)) {
+      robust.poisson.prefit <- glm(y~x[,colnames(x)!="(Intercept)"],family=poisson(), offset=offset,subset=(outliers!=1))
+
     prefit.coef <- coef(robust.poisson.prefit)
     # assume 20% outliers as a starting point
     currlpoutlier <- log(0.2/(1-0.2))
@@ -73,9 +52,7 @@ poisson.fit.robmixglm <- function(x,y,offset,gh,notrials,EMTol, calcHessian=TRUE
       # expectation step
       currpoutlier <- 1.0/(1+exp(-currlpoutlier))
       
-      lp <- as.vector(x %*% currxcoef)
-      
-      if (!is.null(offset)) lp <- lp+offset
+      lp <- as.vector(x %*% currxcoef)+offset
       
       ll1 <- dpois(y, exp(lp), log = TRUE)+log(1-currpoutlier) 
       ll2 <- llrandpoiscpp(y, lp, currtau2, gh)+log(currpoutlier)
@@ -98,7 +75,7 @@ poisson.fit.robmixglm <- function(x,y,offset,gh,notrials,EMTol, calcHessian=TRUE
       results.nlm <- suppressWarnings(nlminb(startvals,optimrlreg,
                             lower=c(rep(-Inf,length(currxcoef)),0),
                             #control=list(trace=1,iter.max=10),
-                            control=list(iter.max=5),
+                            control=list(trace=0,iter.max=5),
                             lpoutlier=currlpoutlier,
                             prop=prop,
                             y=y,x=x,offset=offset,
@@ -108,10 +85,14 @@ poisson.fit.robmixglm <- function(x,y,offset,gh,notrials,EMTol, calcHessian=TRUE
       
       lastll <- currll
       currll <- -rlreg(currxcoef,currlpoutlier,currtau2,x,y,offset)
+      if (verbose) print(sprintf("Likelihood at end of EM step %.4f", currll))
       if (abs((lastll-currll)/currll)<EMTol) break()
       if (nem >100) break()
     }
-    return(list(ll=currll,start.val=c(currxcoef,currlpoutlier,currtau2)))    
+    return(list(ll=currll,start.val=c(currxcoef,currlpoutlier,currtau2)))   
+    },
+    error=function(e) return(list(ll=NA))
+    )
   }
   
   ll.robustpoisson <- function(p){
@@ -122,9 +103,7 @@ poisson.fit.robmixglm <- function(x,y,offset,gh,notrials,EMTol, calcHessian=TRUE
     
     poutlier <- exp(lpoutlier)/(1+exp(lpoutlier))
     
-    lp <- as.vector(x %*% xcoef)
-    
-    if (!is.null(offset)) lp <- lp+offset
+    lp <- as.vector(x %*% xcoef)+offset
     
     ll1 <- dpois(y, exp(lp), log = TRUE)+log(1-poutlier)
 #    print(cbind(llrandpoiscpp(y, lp, tau2, gh)-llrandpois(y, lp, tau2, gh)))
@@ -141,7 +120,6 @@ poisson.fit.robmixglm <- function(x,y,offset,gh,notrials,EMTol, calcHessian=TRUE
     if (!exists(".Random.seed", envir = .GlobalEnv, inherits = FALSE)) runif(1)
     seed <- get(".Random.seed", envir = .GlobalEnv, inherits = FALSE)
   
-  #browser()
   if (is.null(starting.values)) {
     if (cores > 1) {
       cl = parallel::makeCluster(cores, setup_strategy = "sequential")
@@ -153,28 +131,37 @@ poisson.fit.robmixglm <- function(x,y,offset,gh,notrials,EMTol, calcHessian=TRUE
                       fitonemlreg(y,outliers,x,offset,fixed=NULL)}
       parallel::stopCluster(cl)
       maxll <- -Inf
+      nfails <- 0
       for (i in 1:notrials) {
-        if (verbose) print(c(res[[i]]$ll,res[[i]]$start.val))
-        if (res[[i]]$ll>maxll) {
-          maxll <- res[[i]]$ll
-          start.val <- res[[i]]$start.val
+         if (verbose) cat(c(res[[i]]$ll,res[[i]]$start.val),"\n")
+        if (is.na(res[[i]]$ll)) nfails <- nfails+1
+        else {
+          if (res[[i]]$ll>maxll) {
+            maxll <- res[[i]]$ll
+            start.val <- res[[i]]$start.val
+          }
         }
+        if (nfails > 0) warning(sprintf("Failed to obtain starting values for %i starting sets", nfails))
       }
     } else {
       maxll <- -Inf
+      nfails <- 0
       for (i in 1:notrials) {
-        try({
           noutliers <- max(1,round(dim(x)[1]*0.2))
           outliers <- sample(c(rep(1,noutliers),rep(0,dim(x)[1]-noutliers)),dim(x)[1])
+          if (verbose) print(sprintf("Trial %i", i))
           thefit <- fitonemlreg(y,outliers,x,offset,fixed=NULL)
-          if (verbose) print(c(thefit$ll,thefit$start.val))
-          if (thefit$ll>maxll) {
-            maxll <- thefit$ll
-            start.val <- thefit$start.val
+          if (verbose) print(sprintf("Likelihood for trial %.4f", thefit$ll))
+          if (verbose) print(thefit$start.val)
+          if (is.na(thefit$ll)) nfails <- nfails+1
+          else {
+            if (thefit$ll>maxll) {
+              maxll <- thefit$ll
+              start.val <- thefit$start.val
+            }
           }
+          if (nfails > 0) warning(sprintf("Failed to obtain starting values for %i starting sets", nfails))
         }
-        )
-      }
     }
   } else {
     start.val <- starting.values
@@ -219,9 +206,7 @@ poisson.fit.robmixglm <- function(x,y,offset,gh,notrials,EMTol, calcHessian=TRUE
   poutlier <- 1.0/(1+exp(-lpoutlier))
   tau2 <- coef(robustpoisson.fit)[length(coef(robustpoisson.fit))]
   
-  lp <- as.vector(x %*% xcoef)
-  
-  if (!is.null(offset)) lp <- lp+offset
+  lp <- as.vector(x %*% xcoef)+offset
   
   ll1 <- dpois(y, exp(lp), log = TRUE)+log(1-poutlier) 
     ll2 <- llrandpoiscpp(y, lp, tau2, gh)+log(poutlier)

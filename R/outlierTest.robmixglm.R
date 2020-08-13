@@ -13,7 +13,7 @@ gaussian.outlierTest.robmixglm <- function(object, R, parallel, cores) {
     gaussian.mle2 <- glm.fit(thedata$X, thedata$Y, 
                              offset = thedata$offset, family = gaussian())
     thesd <- sqrt(gaussian.mle2$deviance/gaussian.mle2$df.residual)
-    # starting values assume 50% outliers and tau^2 of 1
+    # starting values assume 20% outliers and tau^2 of 1
     starting.values <- c(coef(gaussian.mle2)[1:length(coef(gaussian.mle2))],log(0.2/(1-0.2)),1,thesd)
     if (fitno==1) mixfit <- suppressWarnings(gaussian.fit.robmixglm(thedata$X, thedata$Y, 
                                        offset = thedata$offset,gh = norm.gauss.hermite(object$quadpoints),
@@ -39,7 +39,7 @@ gaussian.outlierTest.robmixglm <- function(object, R, parallel, cores) {
   gaussian.boot <- boot(thedata, gaussian.fun, R, sim="parametric",
                         ran.gen = gaussian.rg, mle=gaussian.mle,parallel=parallel,
                         ncpus = cores)
-  return(list(pos=sum(gaussian.boot$t[,1]>gaussian.boot$t0[1]),R=R,nullstat=gaussian.boot$t[,1]))
+  return(gaussian.boot)
 }
 
 nbinom.outlierTest.robmixglm <- function(object, R, parallel, cores) {
@@ -47,69 +47,45 @@ nbinom.outlierTest.robmixglm <- function(object, R, parallel, cores) {
   nbinom.rg <- function(data, mle) {
     
     # calculate linear predictor
-    lp <- data$X %*% matrix(mle$coefficients,ncol=1) + data$offset
-    theta <- mle$theta
+    lp <- matrix(data$X,ncol=length(mle$par)-1) %*% matrix(mle$par[1:(length(mle$par)-1)],ncol=1) + data$offset
+    theta <- mle$par[length(mle$par)]
     data$Y <- rnbinom(length(data$Y),mu=exp(lp),size=theta)
     return(data)
   }
   
   nbinom.fun <- function(data) {
-    thedata <- data.frame(data$X,data$Y)
-    
-    if (dim(object$X)[2]>2) theformula <- paste(names(thedata)[2:dim(object$X)[2]],"+",sep='',collapse="")
-    else theformula <- "1+"
-    
-    if(!is.null(offset)) thedata <- data.frame(thedata,offset=object$offset)
-    
-    theformula <- substr(theformula,1,nchar(theformula)-1)
-    
-    if(!is.null(object$offset)) donegbin <- paste("nbinom.mle <- glm.nb(object.Y~",theformula,"+offset(offset),",
-                                                        "data=thedata)",sep='',collapse='')
-    else donegbin <- paste("nbinom.mle <- glm.nb(object.Y~",theformula,",",
-                           "data=thedata)",sep='',collapse='')
-    
-    eval(parse(text=donegbin))
-    thetheta <-  nbinom.mle$theta
 
-    # starting values assume 50% outliers and tau^2 of 1
-    starting.values <- c(coef(nbinom.mle)[1:length(coef(nbinom.mle))],log(0.2/(1-0.2)),1,thetheta)
-    if (fitno==1) mixfit <- suppressWarnings(nbinom.fit.robmixglm(data$X, data$Y, 
+    nbinom.mle2 <- fitnegbin(data$Y,object$X,data$offset)
+
+    # starting values assume 20% outliers and tau^2 of 1
+    starting.values <- c(nbinom.mle2$par[1:(length(nbinom.mle2$par)-1)],log(0.2/(1-0.2)),1,exp(nbinom.mle2$par[length(nbinom.mle2$par)]))
+    if (fitno==1) mixfit <- nbinom.fit.robmixglm(data$X, data$Y, 
                                        offset = data$offset,gh = norm.gauss.hermite(object$quadpoints),
                                        notrials=object$notrials, EMTol = object$EMTol, calcHessian=FALSE,
-                                       verbose=object$verbose, starting.values=NULL, cores=1))
-     else mixfit <- suppressWarnings(nbinom.fit.robmixglm(data$X, data$Y, 
+                                       verbose=object$verbose, starting.values=NULL, cores=1)
+     else mixfit <- nbinom.fit.robmixglm(data$X, data$Y, 
                                        offset = data$offset,gh = norm.gauss.hermite(object$quadpoints),
                                        notrials=object$notrials, EMTol = object$EMTol, calcHessian=FALSE,
-                                       verbose=object$verbose, starting.values=starting.values, cores=1))
-    lp <- data$X %*% matrix(nbinom.mle2$coefficients,ncol=1) + data$offset
-    nbinom.loglik <- sum(dnbinom(thedata$Y,mu=lp,size=thetheta,log=TRUE))
+                                       verbose=object$verbose, starting.values=starting.values, cores=1)
+    
+
+        lp <- data$X %*% matrix(nbinom.mle2$par[1:(length(nbinom.mle2$par)-1)],ncol=1) + data$offset
+    
+    nbinom.loglik <- sum(dnbinom(data$Y,mu=exp(lp),size=nbinom.mle2$par[length(nbinom.mle2$par)],log=TRUE))
+    if (any(is.nan(dnbinom(thedata$Y,mu=exp(lp),size=nbinom.mle2$par[length(nbinom.mle2$par)],log=TRUE)))) browser()
     sim.chisq <- 2*(mixfit$logLik-nbinom.loglik)
     fitno <<- fitno+1
     return(sim.chisq)
   }
-  #stop("Not implemented yet")
-  # fit glm to data
-  thedata <- data.frame(object$X,object$Y)
-  
-  if (dim(object$X)[2]>2) theformula <- paste(names(thedata)[2:dim(object$X)[2]],"+",sep='',collapse="")
-  else theformula <- "1+"
-  
-  if(!is.null(offset)) thedata <- data.frame(thedata,offset=object$offset)
-  
-  theformula <- substr(theformula,1,nchar(theformula)-1)
-  
-  if(!is.null(object$offset)) donegbin <- paste("nbinom.mle <- glm.nb(object.Y~",theformula,"+offset(offset),",
-                                                     "data=thedata)",sep='',collapse='')
-  else donegbin <- paste("nbinom.mle <- glm.nb(object.Y~",theformula,",",
-                        "data=thedata)",sep='',collapse='')
-  
-  eval(parse(text=donegbin))
-  thedata <- list(X=object$X,Y=object$Y,offset=object$offset,mle=negbin.mle)
+
+  nbinom.mle <- fitnegbin(object$Y,object$X,object$offset)
+ 
+  thedata <- list(X=object$X,Y=object$Y,offset=object$offset,mle=nbinom.mle)
   fitno <- 1
   nbinom.boot <- boot(thedata, nbinom.fun, R, sim="parametric",
                         ran.gen = nbinom.rg, mle=nbinom.mle,parallel=parallel,
                       ncpus = cores)
-  return(list(pos=sum(nbinom.boot$t[,1]>nbinom.boot$t0[1]),R=R,nullstat=nbinom.boot$t[,1]))
+  return(nbinom.boot)
 }
 
 
@@ -127,8 +103,8 @@ gamma.outlierTest.robmixglm <- function(object, R, parallel, cores) {
   gamma.fun <- function(thedata) {
     gamma.mle2 <- glm.fit(thedata$X, thedata$Y, 
                           offset = thedata$offset, family = Gamma(link="log"))
-    # starting values assume 50% outliers and tau^2 of 1
-    starting.values <- c(coef(gamma.mle2)[1:length(coef(gamma.mle2))],log(0.5/(1-0.5)),1,sum(gamma.mle2$residuals^2)/gamma.mle2$df.residual)
+    # starting values assume 20% outliers and tau^2 of 1
+    starting.values <- c(coef(gamma.mle2)[1:length(coef(gamma.mle2))],log(0.2/(1-0.2)),1,sum(gamma.mle2$residuals^2)/gamma.mle2$df.residual)
     if (fitno==1)  mixfit <- suppressWarnings(gamma.fit.robmixglm(thedata$X, thedata$Y, 
                                     offset = thedata$offset,gh = norm.gauss.hermite(object$quadpoints),
                                     notrials=object$notrials, EMTol = object$EMTol, calcHessian=FALSE,
@@ -155,7 +131,7 @@ gamma.outlierTest.robmixglm <- function(object, R, parallel, cores) {
   gamma.boot <- boot(thedata, gamma.fun, R, sim="parametric",
                         ran.gen = gamma.rg, mle=gamma.mle, parallel=parallel,
                      ncpus = cores)
-  return(list(pos=sum(gamma.boot$t[,1]>gamma.boot$t0[1]),R=R,nullstat=gamma.boot$t[,1]))
+  return(gamma.boot)
 }
 
 truncpoisson.outlierTest.robmixglm <- function(object, R, parallel, cores) {
@@ -168,27 +144,12 @@ truncpoisson.outlierTest.robmixglm <- function(object, R, parallel, cores) {
   }
   
   truncpoisson.fun <- function(data) {
- 
-    thedata <- data.frame(data$X,data$Y)
-    
-    if (dim(data$X)[2]>1) theformula <- paste(names(thedata)[2:(dim(data$X)[2])],"+",sep='',collapse="")
-    else theformula <- "1+"
-    
-    if(!is.null(data$offset)) thedata <- data.frame(thedata,offset=data$offset)
-    
-    theformula <- substr(theformula,1,nchar(theformula)-1)
-    
-    if(!is.null(object$offset)) dotrunc <- paste("truncpoisson.mle2 <- vglm(data.Y~",theformula,",",
-                                                       "family=pospoisson, offset=offset,",
-                                                       "data=thedata)",sep='',collapse='')
-    else dotrunc <- paste("truncpoisson.mle2 <- vglm(data.Y~",theformula,",",
-                          "family=pospoisson,",
-                          "data=thedata)",sep='',collapse='')
-
-    eval(parse(text=dotrunc))
       
-    # starting values assume 50% outliers and tau^2 of 1
-    starting.values <- c(coef(truncpoisson.mle2)[1:length(coef(truncpoisson.mle2))],log(0.5/(1-0.5)),1)
+    truncpoisson.mle2 <- vglm(data$Y~data$X[,colnames(data$X)!="(Intercept)"],
+                                       family=pospoisson, offset=data$offset)
+    
+    # starting values assume 20% outliers and tau^2 of 1
+    starting.values <- c(coef(truncpoisson.mle2)[1:length(coef(truncpoisson.mle2))],log(0.2/(1-0.2)),1)
     if (fitno==1) mixfit <- suppressWarnings(truncpoisson.fit.robmixglm(data$X, data$Y, 
                                            offset = thedata$offset,gh = norm.gauss.hermite(object$quadpoints),
                                            notrials=object$notrials, EMTol = object$EMTol, calcHessian=FALSE,
@@ -204,24 +165,9 @@ truncpoisson.outlierTest.robmixglm <- function(object, R, parallel, cores) {
     return(sim.chisq)
   }
   
-  # fit glm to data
-  thedata <- data.frame(object$X,object$Y)
-
-  if (dim(object$X)[2]>2) theformula <- paste(names(thedata)[2:dim(object$X)[2]],"+",sep='',collapse="")
-  else theformula <- "1+"
   
-  if(!is.null(offset)) thedata <- data.frame(thedata,offset=object$offset)
+  truncpoisson.mle2 <- vglm(object$Y~object$X[,colnames(object$X)!="(Intercept)"],family=pospoisson, offset=object$offset)
   
-  theformula <- substr(theformula,1,nchar(theformula)-1)
-  
-  if(!is.null(object$offset)) dotrunc <- paste("truncpoisson.mle2 <- vglm(object.Y~",theformula,",",
-                                        "family=pospoisson, offset=offset,",
-                                        "data=thedata)",sep='',collapse='')
-  else dotrunc <- paste("truncpoisson.mle2 <- vglm(object.Y~",theformula,",",
-                        "family=pospoisson,",
-                        "data=thedata)",sep='',collapse='')
-  
-  eval(parse(text=dotrunc))
   fitno <- 1
   
   thedata <- list(X=object$X,Y=object$Y,offset=object$offset,mle=truncpoisson.mle2)
@@ -229,7 +175,7 @@ truncpoisson.outlierTest.robmixglm <- function(object, R, parallel, cores) {
   truncpoisson.boot <- boot(thedata, truncpoisson.fun, R, sim="parametric",
                             ran.gen = truncpoisson.rg, mle=truncpoisson.mle2, parallel=parallel,
                             ncpus = cores)
-  return(list(pos=sum(truncpoisson.boot$t[,1]>truncpoisson.boot$t0[1]),R=R,nullstat=truncpoisson.boot$t[,1]))
+  return(truncpoisson.boot)
 }
 
 
@@ -247,8 +193,8 @@ poisson.outlierTest.robmixglm <- function(object, R, parallel, cores) {
     poisson.fun <- function(thedata) {
       poisson.mle2 <- glm.fit(thedata$X, thedata$Y, 
                               offset = thedata$offset, family = poisson())
-      # starting values assume 50% outliers and tau^2 of 1
-      starting.values <- c(coef(poisson.mle2)[1:length(coef(poisson.mle2))],log(0.5/(1-0.5)),1)
+      # starting values assume 20% outliers and tau^2 of 1
+      starting.values <- c(coef(poisson.mle2)[1:length(coef(poisson.mle2))],log(0.2/(1-0.2)),1)
       if (fitno==1) mixfit <- suppressWarnings(poisson.fit.robmixglm(thedata$X, thedata$Y, 
                                         offset = thedata$offset,gh = norm.gauss.hermite(object$quadpoints),
                                         notrials=object$notrials, EMTol = object$EMTol, calcHessian=TRUE,
@@ -274,7 +220,7 @@ poisson.outlierTest.robmixglm <- function(object, R, parallel, cores) {
   poisson.boot <- boot(thedata, poisson.fun, R, sim="parametric",
                        ran.gen = poisson.rg, mle=poisson.mle, parallel=parallel,
                        ncpus = cores)
-  return(list(pos=sum(poisson.boot$t[,1]>poisson.boot$t0[1]),R=R,nullstat=poisson.boot$t[,1]))
+  return(poisson.boot)
 }
 
 binomial.outlierTest.robmixglm <- function(object, R, parallel, cores) {
@@ -291,7 +237,7 @@ binomial.outlierTest.robmixglm <- function(object, R, parallel, cores) {
   binomial.fun <- function(thedata) {
     binomial.mle2 <- glm.fit(thedata$X, thedata$Y,
                              offset = thedata$offset, family = binomial())
-    starting.values <- c(coef(binomial.mle2),log(0.5/(1-0.5)),1)
+    starting.values <- c(coef(binomial.mle2),log(0.2/(1-0.2)),1)
     if (fitno==1) mixfit <- suppressWarnings(binomial.fit.robmixglm(thedata$X, thedata$Y,
                                        offset = thedata$offset,gh = norm.gauss.hermite(object$quadpoints),
                                        notrials=object$notrials, EMTol = object$EMTol, calcHessian=FALSE,
@@ -317,7 +263,7 @@ binomial.outlierTest.robmixglm <- function(object, R, parallel, cores) {
   binomial.boot <- boot(thedata, binomial.fun, R, sim="parametric",
                        ran.gen = binomial.rg, mle=binomial.mle, parallel=parallel,
                        ncpus = cores)
-  return(list(pos=sum(binomial.boot$t[,1]>binomial.boot$t0[1]),R=R,nullstat=binomial.boot$t[,1]))
+  return(binomial.boot)
 }
 
 outlierTest <-

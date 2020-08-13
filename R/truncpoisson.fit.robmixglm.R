@@ -32,9 +32,7 @@ truncpoisson.fit.robmixglm <- function(x,y,offset,gh,notrials,EMTol, calcHessian
     rlreg <- function(xcoef,lpoutlier,tau2,x,y,offset,prop) {
       poutlier <- 1.0/(1+exp(-lpoutlier))
       
-      lp <- as.vector(x %*% xcoef)
-
-      if(!is.null(offset)) lp <- lp+offset
+      lp <- as.vector(x %*% xcoef)+offset
       
       lp1 <- actuar::dztpois(y, exp(lp), TRUE)
       lp2 <- llrandtruncpoiscpp(y, lp, tau2, gh)
@@ -56,25 +54,11 @@ truncpoisson.fit.robmixglm <- function(x,y,offset,gh,notrials,EMTol, calcHessian
       return(rlreg(matrix(p[1:(length(p)-1)],ncol=1),lpoutlier,p[length(p)],x,y,offset,prop))
     }
     
-    thedata <- data.frame(y,x)
-    
-    lastdata=length(names(thedata))
-    if(!is.null(offset)) thedata <- data.frame(thedata,offset=offset)
-    
-    # get the starting values
-    if (is.null(starting.values)) {
-      # fit first with glm
-    
-     if (lastdata>2) theformula <- paste(names(thedata)[3:lastdata],"+",sep='',collapse="")
-    else theformula <- "1+"
-    
-     theformula <- substr(theformula,1,nchar(theformula)-1)
-     
-     doprefit <- paste("robust.truncpoisson.prefit <- vglm(y~",theformula,",",
-                 "family=pospoisson, offset=offset,subset=(outliers!=1),",
-                 "data=thedata)",sep='',collapse='')
-     eval(parse(text=doprefit))
-      
+    tryCatch({
+      if (is.null(starting.values)) {
+      robust.truncpoisson.prefit <- vglm(y~x[,colnames(x)!="(Intercept)"],
+                 family=pospoisson, offset=offset,subset=(outliers!=1))
+
     prefit.coef <- coef(robust.truncpoisson.prefit)
     # assume 20% outliers as a starting point
     currlpoutlier <- log(0.2/(1-0.2))
@@ -96,9 +80,7 @@ truncpoisson.fit.robmixglm <- function(x,y,offset,gh,notrials,EMTol, calcHessian
       # expectation step
       currpoutlier <- 1.0/(1+exp(-currlpoutlier))
       
-      lp <- as.vector(x %*% currxcoef)
-
-      if (!is.null(offset)) lp <- lp+offset
+      lp <- as.vector(x %*% currxcoef)+offset
       
       ll1 <- actuar::dztpois(y, exp(lp), TRUE)+log(1-currpoutlier) 
       ll2 <- llrandtruncpoiscpp(y, lp, currtau2, gh)+log(currpoutlier)
@@ -131,10 +113,14 @@ truncpoisson.fit.robmixglm <- function(x,y,offset,gh,notrials,EMTol, calcHessian
       
       lastll <- currll
       currll <- -rlreg(currxcoef,currlpoutlier,currtau2,x,y,offset)
-       if (abs((lastll-currll)/currll)<EMTol) break()
+      if (verbose) print(sprintf("Likelihood at end of EM step %.4f", currll))
+      if (abs((lastll-currll)/currll)<EMTol) break()
       if (nem >100) break()
     }
     return(list(ll=currll,start.val=c(currxcoef,currlpoutlier,currtau2)))    
+    },
+    error=function(e) return(list(ll=NA))
+    )
   }
   
   ll.robusttruncpoisson <- function(p){
@@ -145,9 +131,7 @@ truncpoisson.fit.robmixglm <- function(x,y,offset,gh,notrials,EMTol, calcHessian
      
     poutlier <- exp(lpoutlier)/(1+exp(lpoutlier))
     
-    lp <- as.vector(x %*% xcoef)
-
-    if (!is.null(offset)) lp <- lp+offset
+    lp <- as.vector(x %*% xcoef)+offset
     
     ll1 <- actuar::dztpois(y, exp(lp), TRUE)+log(1-poutlier)
     
@@ -173,29 +157,38 @@ truncpoisson.fit.robmixglm <- function(x,y,offset,gh,notrials,EMTol, calcHessian
                       fitonemlreg(y,outliers,x,offset,fixed=NULL)}
       parallel::stopCluster(cl)
       maxll <- -Inf
+      nfails <- 0
       for (i in 1:notrials) {
-        if (verbose) print(c(res[[i]]$ll,res[[i]]$start.val))
-        if (res[[i]]$ll>maxll) {
-          maxll <- res[[i]]$ll
-          start.val <- res[[i]]$start.val
+        if (verbose) cat(c(res[[i]]$ll,res[[i]]$start.val),"\n")
+        if (is.na(res[[i]]$ll)) nfails <- nfails+1
+        else {
+          if (res[[i]]$ll>maxll) {
+            maxll <- res[[i]]$ll
+            start.val <- res[[i]]$start.val
+          }
         }
+        if (nfails > 0) warning(sprintf("Failed to obtain starting values for %i starting sets", nfails))
       }
     } else {
       maxll <- -Inf
+      nfails <- 0
       for (i in 1:notrials) {
-        try({
           noutliers <- max(1,round(dim(x)[1]*0.2))
           outliers <- sample(c(rep(1,noutliers),rep(0,dim(x)[1]-noutliers)),dim(x)[1])
+          if (verbose) print(sprintf("Trial %i", i))
           thefit <- fitonemlreg(y,outliers,x,offset,fixed=NULL)
-          if (verbose) print(c(thefit$ll,thefit$start.val))
-          if (thefit$ll>maxll) {
-            maxll <- thefit$ll
-            start.val <- thefit$start.val
+          if (verbose) print(sprintf("Likelihood for trial %.4f", thefit$ll))
+          if (verbose) print(thefit$start.val)
+          if (is.na(thefit$ll)) nfails <- nfails+1
+          else {
+            if (thefit$ll>maxll) {
+              maxll <- thefit$ll
+              start.val <- thefit$start.val
+            }
           }
+          if (nfails > 0) warning(sprintf("Failed to obtain starting values for %i starting sets", nfails))
         }
-        )
-      }
-    }
+     }
   } else {
     start.val <- starting.values
   }
@@ -233,9 +226,7 @@ truncpoisson.fit.robmixglm <- function(x,y,offset,gh,notrials,EMTol, calcHessian
   tau2 <- coef(robusttruncpoisson.fit)[length(coef(robusttruncpoisson.fit))]
   
   
-  lp <- as.vector(x %*% xcoef)
-
-  if (!is.null(offset)) lp <- lp+offset
+  lp <- as.vector(x %*% xcoef)+offset
   
   ll1 <- actuar::dztpois(y, exp(lp), TRUE)+log(1-poutlier) 
   ll2 <- llrandtruncpoiscpp(y, lp, tau2, gh)+log(poutlier)

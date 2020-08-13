@@ -16,7 +16,7 @@ A robmixglm object with a mixture (robust) random effects distribution.
   \item{cores}{Number of cores to be used in parallel. Default is one less than available.}
 }
 \value{
-An outlierTest object.
+An outlierTest object which is the object of class \dQuote{boot} returned by the call to \command{boot}.
 }
 \details{
 Performs a parametric bootstrap to compare models with and without outliers.
