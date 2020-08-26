@@ -12,6 +12,8 @@ This is the main function that allows fitting the models. The robmixglm objects 
 }
 \examples{
 \donttest{
+# for the following cores is set to 1 to satisfy the CRAN testing requirements
+# removing will reduce the time taken depending on number of cores available
 # animal brain vs body weight
 library(MASS)
 data(Animals)
@@ -42,6 +44,15 @@ diabdata.step <- step(diabdata.robustmix, glyhb~age+gender+bmi+waisthip+frame)
 summary(diabdata.step)
 plot(outlierProbs(diabdata.step))
 outlierTest(diabdata.step, cores  =  1)
+
+# Hawkins' data
+library(forward)
+data(hawkins)
+hawkins.robustmix <- robmixglm(y~x1+x2+x3+x4+x5+x6+x7+x8,
+    cores = 1, data=hawkins)
+summary(hawkins.robustmix)
+plot(outlierProbs(hawkins.robustmix))
+outlierTest(hawkins.robustmix, cores = 1)
 
 # carrot damage
 library(robustbase)

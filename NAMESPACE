@@ -29,7 +29,7 @@ importFrom("stats", "Gamma", "binomial", "constrOptim", "gaussian",
 importFrom("stats", ".getXlevels", "model.frame")
 importFrom("stats", "glm", "lm")
 
-importFrom("MASS", "ginv", "glm.nb")
+importFrom("MASS", "ginv")
 importFrom("methods", "signature")
  
 importFrom("fastGHQuad", "gaussHermiteData")

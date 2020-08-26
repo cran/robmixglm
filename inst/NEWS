@@ -1,3 +1,13 @@
+Changes in robmixglm version 1.2-0
+
+  o added negative binomial distribution
+
+  o fixed bug causing too many displays of failure to find starting values message
+
+  o increased number of random starting values to 50 to make finding the global maximum more likely
+
+  o improved calculation of standard errors
+
 Changes in robmixglm version 1.1-1
   
   o use multiple cores for determining starting values (if this causes problems then set cores=1)

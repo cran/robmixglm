@@ -59,14 +59,14 @@ nbinom.outlierTest.robmixglm <- function(object, R, parallel, cores) {
 
     # starting values assume 20% outliers and tau^2 of 1
     starting.values <- c(nbinom.mle2$par[1:(length(nbinom.mle2$par)-1)],log(0.2/(1-0.2)),1,exp(nbinom.mle2$par[length(nbinom.mle2$par)]))
-    if (fitno==1) mixfit <- nbinom.fit.robmixglm(data$X, data$Y, 
+    if (fitno==1) mixfit <- suppressWarnings(nbinom.fit.robmixglm(data$X, data$Y, 
                                        offset = data$offset,gh = norm.gauss.hermite(object$quadpoints),
                                        notrials=object$notrials, EMTol = object$EMTol, calcHessian=FALSE,
-                                       verbose=object$verbose, starting.values=NULL, cores=1)
-     else mixfit <- nbinom.fit.robmixglm(data$X, data$Y, 
+                                       verbose=object$verbose, starting.values=NULL, cores=1))
+     else mixfit <- suppressWarnings(nbinom.fit.robmixglm(data$X, data$Y, 
                                        offset = data$offset,gh = norm.gauss.hermite(object$quadpoints),
                                        notrials=object$notrials, EMTol = object$EMTol, calcHessian=FALSE,
-                                       verbose=object$verbose, starting.values=starting.values, cores=1)
+                                       verbose=object$verbose, starting.values=starting.values, cores=1))
     
 
         lp <- data$X %*% matrix(nbinom.mle2$par[1:(length(nbinom.mle2$par)-1)],ncol=1) + data$offset

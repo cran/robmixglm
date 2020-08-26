@@ -147,8 +147,8 @@ gamma.fit.robmixglm <- function(x,y,offset,gh,notrials,EMTol,  calcHessian=TRUE,
             start.val <- res[[i]]$start.val
           }
         }
-        if (nfails > 0) warning(sprintf("Failed to obtain starting values for %i starting sets", nfails))
       }
+      if (nfails > 0) warning(sprintf("Failed to obtain starting values for %i starting sets", nfails))
     } else {
       maxll <- -Inf
       nfails <- 0
@@ -167,8 +167,8 @@ gamma.fit.robmixglm <- function(x,y,offset,gh,notrials,EMTol,  calcHessian=TRUE,
               start.val <- thefit$start.val
             }
           }
-          if (nfails > 0) warning(sprintf("Failed to obtain starting values for %i starting sets", nfails))
-       }
+        }
+      if (nfails > 0) warning(sprintf("Failed to obtain starting values for %i starting sets", nfails))
     }
   } else {
     start.val <- starting.values
@@ -183,19 +183,22 @@ gamma.fit.robmixglm <- function(x,y,offset,gh,notrials,EMTol,  calcHessian=TRUE,
   lower.val <- c(rep(-Inf,length(start.val)-3),-Inf,0,0)
   
   names(lower.val) <- names(start.val)
+
+  if(verbose) thecontrol <- list(eval.max=1000,iter.max=1000,eval.max=2000,trace=5)
+  else thecontrol <- list(eval.max=1000,iter.max=1000,eval.max=2000)
   
   robustgamma.fit <- mle2(ll.robustgamma,start=start.val,vecpar=TRUE,
                           optimizer="user",optimfun=myoptim,
                           data=list(y=y,x=x,offset=offset),
                           skip.hessian=TRUE,trace=verbose,
                           lower=lower.val,
-                          control=if (verbose) list(eval.max=1000,iter.max=1000,trace=5) else list(eval.max=1000,iter.max=1000))
+                           control=thecontrol)
   
   if (calcHessian) {
     thecoef <- coef(robustgamma.fit)
     ncoef <- length(thecoef)
     if (thecoef[ncoef-1]<0.0001) thecoef[ncoef-1] <- 0.0001
-    robustgamma.fit@details$hessian <- hessian(ll.robustgamma,thecoef)
+    robustgamma.fit@details$hessian <- optimHess(thecoef,ll.robustgamma,control=list(ndeps=c(rep(1.0e-5,length(thecoef)))))
     robustgamma.fit@vcov <- ginv(robustgamma.fit@details$hessian)
   }
   #if (any(is.nan(sqrt(diag(robustgamma.fit@vcov)))))  warning("Error in calculating standard errors.")

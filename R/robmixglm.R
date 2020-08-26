@@ -1,6 +1,6 @@
 robmixglm <-
- function(formula,family=c("gaussian","binomial","poisson","gamma","truncpoisson"),data,offset=NULL,quadpoints=21,
-          notrials=20,EMTol=1.0e-4, cores = max(detectCores() - 1, 1), verbose=FALSE) {
+ function(formula,family=c("gaussian","binomial","poisson","gamma","truncpoisson","nbinom"),data,offset=NULL,quadpoints=21,
+          notrials=50,EMTol=1.0e-4, cores = max(detectCores() - 1, 1), verbose=FALSE) {
       
   is.wholenumber <- function(x, tol = .Machine$double.eps^0.5)  abs(x - round(x)) < tol
   
@@ -8,9 +8,8 @@ robmixglm <-
   
   if (missing(family)) family <- "gaussian"
   
-  if (!(family %in% c("gaussian","binomial","poisson","gamma","truncpoisson")))
-    stop("Valid families are gaussian, binomial, poisson, gamma, truncpoisson.\n")
-  
+  if (!(family %in% c("gaussian","binomial","poisson","gamma","truncpoisson","nbinom")))
+    stop("Valid families are gaussian, binomial, poisson, gamma, truncpoisson, nbinom.\n")
   
   if (missing(data)) data <- environment(formula)
   

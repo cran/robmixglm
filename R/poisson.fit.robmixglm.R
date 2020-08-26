@@ -141,8 +141,8 @@ poisson.fit.robmixglm <- function(x,y,offset,gh,notrials,EMTol, calcHessian=TRUE
             start.val <- res[[i]]$start.val
           }
         }
-        if (nfails > 0) warning(sprintf("Failed to obtain starting values for %i starting sets", nfails))
       }
+      if (nfails > 0) warning(sprintf("Failed to obtain starting values for %i starting sets", nfails))
     } else {
       maxll <- -Inf
       nfails <- 0
@@ -160,8 +160,8 @@ poisson.fit.robmixglm <- function(x,y,offset,gh,notrials,EMTol, calcHessian=TRUE
               start.val <- thefit$start.val
             }
           }
-          if (nfails > 0) warning(sprintf("Failed to obtain starting values for %i starting sets", nfails))
         }
+      if (nfails > 0) warning(sprintf("Failed to obtain starting values for %i starting sets", nfails))
     }
   } else {
     start.val <- starting.values
@@ -179,24 +179,21 @@ poisson.fit.robmixglm <- function(x,y,offset,gh,notrials,EMTol, calcHessian=TRUE
   
   names(lower.val) <- names(start.val)
    
-  # robustpoisson.fit <- mle2(ll.robustpoisson,start=start.val,vecpar=TRUE,
-  #                           optimizer="user",optimfun=myoptim,
-  #                           data=list(y=y,x=x,offset=offset),
-  #                           skip.hessian=TRUE,trace=verbose,
-  #                           lower=lower.val)
+  if(verbose) thecontrol <- list(eval.max=1000,iter.max=1000,eval.max=2000,trace=5)
+  else thecontrol <- list(eval.max=1000,iter.max=1000,eval.max=2000)
   
   robustpoisson.fit <- mle2(ll.robustpoisson,start=start.val,vecpar=TRUE,
                             optimizer="user",optimfun=myoptim,
                             data=list(y=y,x=x,offset=offset),
                             skip.hessian=TRUE,trace=verbose,
                             lower=lower.val,
-                            control=if (verbose) list(eval.max=1000,iter.max=1000,trace=5) else list(eval.max=1000,iter.max=1000))
+                            control=thecontrol)
 
   if (calcHessian) {
     thecoef <- coef(robustpoisson.fit)
     ncoef <- length(thecoef)
     if (thecoef[ncoef]<0.0001) thecoef[ncoef] <- 0.0001
-    robustpoisson.fit@details$hessian <- hessian(ll.robustpoisson,thecoef)
+    robustpoisson.fit@details$hessian <- optimHess(thecoef,ll.robustpoisson,control=list(ndeps=c(rep(1.0e-5,length(thecoef)))))
     robustpoisson.fit@vcov <- ginv(robustpoisson.fit@details$hessian)
   }
   #if (any(is.nan(sqrt(diag(robustpoisson.fit@vcov)))))  warning("Error in calculating standard errors.")

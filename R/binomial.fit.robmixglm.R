@@ -1,6 +1,6 @@
 binomial.fit.robmixglm <- function(x,y,offset,gh,notrials,EMTol,  calcHessian=TRUE,  cores, verbose,starting.values=NULL) {
-    
-    if (!is.null(starting.values)) notrials <- 1
+  
+  if (!is.null(starting.values)) notrials <- 1
   
   logit <- function(x){
     1.0/(1.0+exp(-x))
@@ -173,8 +173,8 @@ binomial.fit.robmixglm <- function(x,y,offset,gh,notrials,EMTol,  calcHessian=TR
             start.val <- res[[i]]$start.val
           }
         }
-        if (nfails > 0) warning(sprintf("Failed to obtain starting values for %i starting sets", nfails))
       }
+      if (nfails > 0) warning(sprintf("Failed to obtain starting values for %i starting sets", nfails))
     } else {
       maxll <- -Inf
       nfails <- 0
@@ -192,8 +192,8 @@ binomial.fit.robmixglm <- function(x,y,offset,gh,notrials,EMTol,  calcHessian=TR
             start.val <- thefit$start.val
           }
         }
-        if (nfails > 0) warning(sprintf("Failed to obtain starting values for %i starting sets", nfails))
       }
+      if (nfails > 0) warning(sprintf("Failed to obtain starting values for %i starting sets", nfails))
     }
   } else {
     start.val <- starting.values
@@ -208,18 +208,21 @@ binomial.fit.robmixglm <- function(x,y,offset,gh,notrials,EMTol,  calcHessian=TR
   lower.val <- c(rep(-Inf,length(start.val)-2),-Inf,0)
   
   names(lower.val) <- names(start.val)
-  
+ 
+   if(verbose) thecontrol <- list(eval.max=1000,iter.max=1000,eval.max=2000,trace=5)
+  else thecontrol <- list(eval.max=1000,iter.max=1000,eval.max=2000)
+ 
   robustbinomial.fit <- mle2(ll.robustbinomial,start=start.val,vecpar=TRUE,
                              optimizer="user",optimfun=myoptim,
                              data=list(y=y,x=x,offset=offset),
                              skip.hessian=TRUE,trace=verbose,
                              lower=lower.val,
-                             control=if (verbose) list(eval.max=1000,iter.max=1000,trace=5) else list(eval.max=1000,iter.max=1000))
+                            control=thecontrol)
   if (calcHessian) {
     thecoef <- coef(robustbinomial.fit)
     ncoef <- length(thecoef)
     if (thecoef[ncoef]<0.0001) thecoef[ncoef] <- 0.0001
-    robustbinomial.fit@details$hessian <- hessian(ll.robustbinomial,thecoef)
+    robustbinomial.fit@details$hessian <- optimHess(thecoef,ll.robustbinomial,control=list(ndeps=c(rep(1.0e-5,length(thecoef)))))
     robustbinomial.fit@vcov <- ginv(robustbinomial.fit@details$hessian)
   }
   # if (any(is.nan(sqrt(diag(robustbinomial.fit@vcov)))))  warning("Error in calculating standard errors.")

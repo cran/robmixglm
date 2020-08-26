@@ -1,8 +1,8 @@
 Package: robmixglm
 Type: Package
 Title: Robust Generalized Linear Models (GLM) using Mixtures
-Version: 1.1-1
-Date: 2020-08-10
+Version: 1.2-0
+Date: 2020-08-21
 Authors@R: c(person("Ken","Beath",email="ken.beath@mq.edu.au", role=c("aut","cre")))
 Maintainer: Ken Beath <ken.beath@mq.edu.au>
 Contact: Ken Beath <ken.beath@mq.edu.au>
@@ -19,6 +19,6 @@ LazyData: yes
 NeedsCompilation: yes
 License: GPL (>= 2)
 LinkingTo: Rcpp
-Packaged: 2020-08-13 06:54:05 UTC; kjbeath1
+Packaged: 2020-08-22 08:02:00 UTC; kjbeath1
 Repository: CRAN
-Date/Publication: 2020-08-13 07:20:02 UTC
+Date/Publication: 2020-08-26 05:30:03 UTC

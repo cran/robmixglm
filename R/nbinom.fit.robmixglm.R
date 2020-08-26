@@ -125,8 +125,8 @@ nbinom.fit.robmixglm <- function(x,y,offset,gh,notrials,EMTol,  calcHessian=TRUE
     
     lp <- as.vector(x %*% xcoef)+offset
     
-    ll1 <- dnbinom(y, mu=exp(lp), size=theta, log=TRUE)+log(1-poutlier) 
-    ll2 <- dnbinom(y, mu=exp(lp), size=thetaout, log=TRUE)+log(poutlier)
+    ll1 <- suppressWarnings(dnbinom(y, mu=exp(lp), size=theta, log=TRUE)+log(1-poutlier))
+    ll2 <- suppressWarnings(dnbinom(y, mu=exp(lp), size=thetaout, log=TRUE)+log(poutlier))
     
     #if (any(is.nan(ll1))) browser()
     
@@ -166,8 +166,8 @@ nbinom.fit.robmixglm <- function(x,y,offset,gh,notrials,EMTol,  calcHessian=TRUE
             start.val <- res[[i]]$start.val
           }
         }
-        if (nfails > 0) warning(sprintf("Failed to obtain starting values for %i starting sets", nfails))
       }
+      if (nfails > 0) warning(sprintf("Failed to obtain starting values for %i starting sets", nfails))
     } else {
       maxll <- -Inf
       nfails <- 0
@@ -185,8 +185,8 @@ nbinom.fit.robmixglm <- function(x,y,offset,gh,notrials,EMTol,  calcHessian=TRUE
             start.val <- thefit$start.val
           }
         }
-        if (nfails > 0) warning(sprintf("Failed to obtain starting values for %i starting sets", nfails))
       }
+      if (nfails > 0) warning(sprintf("Failed to obtain starting values for %i starting sets", nfails))
     }
   } else {
     start.val <- starting.values
@@ -201,15 +201,16 @@ nbinom.fit.robmixglm <- function(x,y,offset,gh,notrials,EMTol,  calcHessian=TRUE
   lower.val <- c(rep(-Inf,length(start.val)-3),-Inf,0,0)
   
   names(lower.val) <- names(start.val)
-  
-  print(start.val)
+
+  if(verbose) thecontrol <- list(eval.max=1000,iter.max=1000,eval.max=2000,trace=5)
+  else thecontrol <- list(eval.max=1000,iter.max=1000,eval.max=2000)
   
   robustnbinom.fit <- mle2(ll.robustnbinom,start=start.val,vecpar=TRUE,
                            optimizer="user",optimfun=myoptim,
                            data=list(y=y,x=x,offset=offset),
                            skip.hessian=TRUE,trace=verbose,
                            lower=lower.val,
-                           control=if (verbose) list(eval.max=1000,iter.max=1000,trace=5) else list(eval.max=1000,iter.max=1000))
+                             control=thecontrol)
   # check that outlierp is less than 0.5
   if (coef(robustnbinom.fit)[length(coef(robustnbinom.fit))-2] > 0.0) {
     start.val <- coef(robustnbinom.fit)
@@ -222,12 +223,13 @@ nbinom.fit.robmixglm <- function(x,y,offset,gh,notrials,EMTol,  calcHessian=TRUE
                              data=list(y=y,x=x,offset=offset),
                              skip.hessian=TRUE,trace=verbose,
                              lower=lower.val,
-                             control=if (verbose) list(eval.max=1000,iter.max=1000,trace=5) else list(eval.max=1000,iter.max=1000))
+                            control=thecontrol)
   }
   if (calcHessian) {
     thecoef <- coef(robustnbinom.fit)
     ncoef <- length(thecoef)
-    robustnbinom.fit@details$hessian <- optimHess(thecoef,ll.robustnbinom,control=list(ndeps=c(rep(0.0001,length(thecoef)-2),min(0.0001,thecoef[length(thecoef)-1]/10.0),min(0.0001,thecoef[length(thecoef)]/10.0))))
+    if (thecoef[ncoef]<0.0001) thecoef[ncoef] <- 1.0e-4
+    robustnbinom.fit@details$hessian <- optimHess(thecoef,ll.robustnbinom,control=list(ndeps=c(rep(1.0e-5,length(thecoef)))))
     robustnbinom.fit@vcov <- ginv(robustnbinom.fit@details$hessian)
   }
   
@@ -250,8 +252,6 @@ nbinom.fit.robmixglm <- function(x,y,offset,gh,notrials,EMTol,  calcHessian=TRUE
     x <- ifelse(x==-Inf,-1e100,x)
     return(exp(x)/sum(exp(x)))
   }))
-  
-  print(coef(robustnbinom.fit))
   
   coef.names <- c(dimnames(x)[[2]],"Outlier p.","Theta","Theta out")
   return(list(fit=robustnbinom.fit,prop=prop,logLik=-robustnbinom.fit@min,np=length(coef.names),nobs=dim(x)[1],coef.names=coef.names))  

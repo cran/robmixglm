@@ -72,7 +72,8 @@ gaussian.fit.robmixglm <- function(x,y,offset,gh,notrials,EMTol,  calcHessian=TR
       
       startvals <- c(currxcoef,currtau2,currsigma2)
       names(startvals) <- c(dimnames(x)[[2]],"tau2","sigma2")
-       results.nlm <- suppressWarnings(nlminb(startvals,optimrlreg,
+      
+      results.nlm <- suppressWarnings(nlminb(startvals,optimrlreg,
                                              lower=c(rep(-Inf,length(currxcoef)),rep(0,2)),
                                              #control=list(trace=1,iter.max=10),
                                              control=list(trace=0,iter.max=5),
@@ -145,8 +146,8 @@ gaussian.fit.robmixglm <- function(x,y,offset,gh,notrials,EMTol,  calcHessian=TR
             start.val <- res[[i]]$start.val
           }
         }
-        if (nfails > 0) warning(sprintf("Failed to obtain starting values for %i starting sets", nfails))
       }
+      if (nfails > 0) warning(sprintf("Failed to obtain starting values for %i starting sets", nfails))
     } else {
       maxll <- -Inf
       nfails <- 0
@@ -164,9 +165,9 @@ gaussian.fit.robmixglm <- function(x,y,offset,gh,notrials,EMTol,  calcHessian=TR
               start.val <- thefit$start.val
             }
           }
-          if (nfails > 0) warning(sprintf("Failed to obtain starting values for %i starting sets", nfails))
         }
-     }
+      if (nfails > 0) warning(sprintf("Failed to obtain starting values for %i starting sets", nfails))
+    }
   } else {
     start.val <- starting.values
   }
@@ -181,18 +182,22 @@ gaussian.fit.robmixglm <- function(x,y,offset,gh,notrials,EMTol,  calcHessian=TR
   
   names(lower.val) <- names(start.val)
   
+  
+  if(verbose) thecontrol <- list(eval.max=1000,iter.max=1000,eval.max=2000,trace=5)
+  else thecontrol <- list(eval.max=1000,iter.max=1000,eval.max=2000)
+ 
   robustgaussian.fit <- mle2(ll.robustgaussian,start=start.val,vecpar=TRUE,
                              optimizer="user",optimfun=myoptim,
                              data=list(y=y,x=x,offset=offset),
                              skip.hessian=TRUE,trace=verbose,
                              lower=lower.val,
-                             control=if (verbose) list(eval.max=1000,iter.max=1000,trace=5) else list(eval.max=1000,iter.max=1000))
-
+                             control=thecontrol)
+  
   if (calcHessian) {
     thecoef <- coef(robustgaussian.fit)
     ncoef <- length(thecoef)
-    if (thecoef[ncoef-1]<1e-6) thecoef[ncoef-1] <- 1e-6
-    robustgaussian.fit@details$hessian <- optimHess(thecoef,ll.robustgaussian,control=list(ndeps=c(rep(0.0001,length(thecoef)-2),min(0.0001,thecoef[length(thecoef)-1]/10.0),min(0.0001,thecoef[length(thecoef)]/10.0))))
+    if (thecoef[ncoef-1]<1e-4) thecoef[ncoef-1] <- 1e-4
+    robustgaussian.fit@details$hessian <- optimHess(thecoef,ll.robustgaussian,control=list(ndeps=c(rep(1.0e-5,length(thecoef)))))
     robustgaussian.fit@vcov <- ginv(robustgaussian.fit@details$hessian)
   }
   # robustgaussian.fit@vcov <- myvcov
