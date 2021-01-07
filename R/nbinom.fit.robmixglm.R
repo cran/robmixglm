@@ -12,8 +12,6 @@ nbinom.fit.robmixglm <- function(x,y,offset,gh,notrials,EMTol,  calcHessian=TRUE
       lp1 <- dnbinom(y, mu=exp(lp), size=theta, log=TRUE)
       lp2 <- dnbinom(y, mu=exp(lp), size=thetaout, log=TRUE)
       
-      #if (any(is.nan(lp1))) browser()
-      
       if (!missing(prop)) {
         ll <- prop*cbind(lp1,lp2)
         negll <- -sum(apply(ll,1,sum))
@@ -37,8 +35,6 @@ nbinom.fit.robmixglm <- function(x,y,offset,gh,notrials,EMTol,  calcHessian=TRUE
         
         robust.nbinom.prefit <- fitnegbin(y[(outliers!=1)],x[(outliers!=1),],offset[(outliers!=1)])
         
-        # browser()
-        
         prefit.coef <- robust.nbinom.prefit$par[1:(length(robust.nbinom.prefit$par)-1)]
         # assume 20% outliers as a starting point
         currlpoutlier <- log(0.2/(1-0.2))
@@ -55,8 +51,6 @@ nbinom.fit.robmixglm <- function(x,y,offset,gh,notrials,EMTol,  calcHessian=TRUE
       currll <- -1.0e100
       nem <- 0
       
-      #browser()
-      
       repeat {
         nem <- nem+1
         # expectation step
@@ -66,8 +60,6 @@ nbinom.fit.robmixglm <- function(x,y,offset,gh,notrials,EMTol,  calcHessian=TRUE
         
         ll1 <- dnbinom(y, mu=exp(lp), size=currtheta, log=TRUE)+log(1-currpoutlier) 
         ll2 <- dnbinom(y, mu=exp(lp), size=currthetaout, log=TRUE)+log(currpoutlier)
-        
-        #if (any(is.nan(ll1))) browser()
         
         ll <- cbind(ll1,ll2)
         prop <- t(apply(ll,1,function(x) {
@@ -128,25 +120,21 @@ nbinom.fit.robmixglm <- function(x,y,offset,gh,notrials,EMTol,  calcHessian=TRUE
     ll1 <- suppressWarnings(dnbinom(y, mu=exp(lp), size=theta, log=TRUE)+log(1-poutlier))
     ll2 <- suppressWarnings(dnbinom(y, mu=exp(lp), size=thetaout, log=TRUE)+log(poutlier))
     
-    #if (any(is.nan(ll1))) browser()
-    
     ll <- cbind(ll1,ll2)
     maxll <- apply(ll,1,max)
-    #browser()
+
     negll <- -sum(maxll+log(apply(exp(ll-maxll),1,sum)))
     if (is.nan(negll)) negll <- NA
     if (!is.finite(negll)) negll <- NA
     return(negll)
   }
   
-  #browser()
-  
   if (!exists(".Random.seed", envir = .GlobalEnv, inherits = FALSE)) runif(1)
   seed <- get(".Random.seed", envir = .GlobalEnv, inherits = FALSE)
   
   if (is.null(starting.values)) {
     if (cores > 1) {
-      cl = parallel::makeCluster(cores, setup_strategy = "sequential")
+      cl <- parallel::makeCluster(cores)
       doParallel::registerDoParallel(cl)
       res = foreach(i = 1:notrials, 
                     .options.RNG=seed[1]) %dorng% {
@@ -154,7 +142,6 @@ nbinom.fit.robmixglm <- function(x,y,offset,gh,notrials,EMTol,  calcHessian=TRUE
                       outliers <- sample(c(rep(1,noutliers),rep(0,dim(x)[1]-noutliers)),dim(x)[1])
                       fitonemlreg(y,outliers,x,offset,fixed=NULL)}
       parallel::stopCluster(cl)
-      #      browser()
       maxll <- -Inf
       nfails <- 0
       for (i in 1:notrials) {
@@ -243,8 +230,6 @@ nbinom.fit.robmixglm <- function(x,y,offset,gh,notrials,EMTol,  calcHessian=TRUE
   
   ll1 <- dnbinom(y, mu=exp(lp), size=theta, log=TRUE)+log(1-poutlier) 
   ll2 <- dnbinom(y, mu=exp(lp), size=thetaout, log=TRUE)+log(poutlier)
-  
-  #if (any(is.nan(ll1))) browser()
   
   ll <- cbind(ll1,ll2)
   prop <- t(apply(ll,1,function(x) {

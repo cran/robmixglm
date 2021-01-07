@@ -4,13 +4,13 @@ gaussian.fit.robmixglm <- function(x,y,offset,gh,notrials,EMTol,  calcHessian=TR
   
   fitonemlreg <- function(y,outliers,x=NULL,offset=NULL,fixed) {
     
-    rlreg <- function(xcoef,lpoutlier,tau2, sigma2,x,y,offset,prop) {
+    rlreg <- function(xcoef,lpoutlier,sigma2, sigma2out,x,y,offset,prop) {
       poutlier <- 1.0/(1+exp(-lpoutlier))
       
       lp <- as.vector(x %*% xcoef)+offset
       
       lp1 <- dnorm(y, mean=lp, sd=sqrt(sigma2), log = TRUE)
-      lp2 <- dnorm(y, mean=lp, sd=sqrt(tau2+sigma2), log=TRUE)
+      lp2 <- dnorm(y, mean=lp, sd=sqrt(sigma2out), log=TRUE)
       
       if (!missing(prop)) {
         ll <- prop*cbind(lp1,lp2)
@@ -37,14 +37,14 @@ gaussian.fit.robmixglm <- function(x,y,offset,gh,notrials,EMTol,  calcHessian=TR
       currlpoutlier <- log(0.2/(1-0.2))
       currxcoef <- matrix(prefit.coef[1:(length(prefit.coef))],ncol=1)
       currxcoef <- ifelse(is.na(currxcoef),0,currxcoef)
-      currtau2 <- min(rgamma(1,2,1),5)*summary(robust.gaussian.prefit)$sigma^2
       currsigma2 <- summary(robust.gaussian.prefit)$sigma^2
-    } else {
+      currsigma2out <- min(rgamma(1,2,1),5)*summary(robust.gaussian.prefit)$sigma^2
+      } else {
       currxcoef <- matrix(starting.values[1:(length(starting.values)-3)],ncol=1)
       currlpoutlier <- starting.values[length(starting.values)-2]
-      currtau2 <- starting.values[length(starting.values)-1]
-      currsigma2 <- starting.values[length(starting.values)]
-    }
+       currsigma2 <- starting.values[length(starting.values)]
+       currsigma2out <- starting.values[length(starting.values)-1]
+      }
     currll <- -1.0e100
     nem <- 0
     
@@ -56,7 +56,7 @@ gaussian.fit.robmixglm <- function(x,y,offset,gh,notrials,EMTol,  calcHessian=TR
       lp <- as.vector(x %*% currxcoef)+offset
       
       ll1 <- dnorm(y, mean=lp, sd=sqrt(currsigma2), log = TRUE)+log(1-currpoutlier) 
-      ll2 <- dnorm(y, mean=lp, sd=sqrt(currsigma2+currtau2),log=TRUE)+log(currpoutlier)
+      ll2 <- dnorm(y, mean=lp, sd=sqrt(currsigma2out),log=TRUE)+log(currpoutlier)
       
       ll <- cbind(ll1,ll2)
       prop <- t(apply(ll,1,function(x) {
@@ -70,8 +70,8 @@ gaussian.fit.robmixglm <- function(x,y,offset,gh,notrials,EMTol,  calcHessian=TR
       
       if (is.na(poutlier)) stop()
       
-      startvals <- c(currxcoef,currtau2,currsigma2)
-      names(startvals) <- c(dimnames(x)[[2]],"tau2","sigma2")
+      startvals <- c(currxcoef,currsigma2,currsigma2out)
+      names(startvals) <- c(dimnames(x)[[2]],"sigma2out","sigma2")
       
       results.nlm <- suppressWarnings(nlminb(startvals,optimrlreg,
                                              lower=c(rep(-Inf,length(currxcoef)),rep(0,2)),
@@ -83,16 +83,22 @@ gaussian.fit.robmixglm <- function(x,y,offset,gh,notrials,EMTol,  calcHessian=TR
                                              fixed=fixed))
    
       currxcoef <- matrix(as.numeric(results.nlm$par)[1:(length(results.nlm$par)-2)],ncol=1)
-      currtau2 <- as.numeric(results.nlm$par)[length(results.nlm$par)-1]
       currsigma2 <- as.numeric(results.nlm$par)[length(results.nlm$par)]
+      currsigma2out <- as.numeric(results.nlm$par)[length(results.nlm$par)-1]
+      
+      if (currsigma2out < currsigma2) {
+        temp <- currsigma2out
+        currsigma2out <- currsigma2
+        currsigma2 <- temp
+      }
       
       lastll <- currll
-      currll <- -rlreg(currxcoef,currlpoutlier,currtau2,currsigma2,x,y,offset)
+      currll <- -rlreg(currxcoef,currlpoutlier,currsigma2,currsigma2out,x,y,offset)
       if (verbose) print(sprintf("Likelihood at end of EM step %.4f", currll))
        if (abs((lastll-currll)/currll)<EMTol) break()
       if (nem >100) break()
     }
-    return(list(ll=currll,start.val=c(currxcoef,currlpoutlier,currtau2,currsigma2)))    
+    return(list(ll=currll,start.val=c(currxcoef,currlpoutlier,currsigma2,currsigma2out)))    
     },
     error=function(e) return(list(ll=NA))
     )
@@ -102,8 +108,8 @@ gaussian.fit.robmixglm <- function(x,y,offset,gh,notrials,EMTol,  calcHessian=TR
     
     xcoef <- p[1:(length(p)-3)]
     lpoutlier <- p[length(p)-2]
-    tau2 <- p[length(p)-1]
-    sigma2 <- p[length(p)]
+    sigma2 <- p[length(p)-1]
+    sigma2out <- p[length(p)]
     
     poutlier <- 1.0/(1+exp(-lpoutlier))
     
@@ -111,11 +117,10 @@ gaussian.fit.robmixglm <- function(x,y,offset,gh,notrials,EMTol,  calcHessian=TR
     
     ll1 <- dnorm(y, mean=lp, sd=sqrt(sigma2), log = TRUE)+log(1-poutlier)
     
-    ll2 <- dnorm(y, mean=lp, sd=sqrt(sigma2+tau2), log = TRUE)+log(poutlier)
+    ll2 <- dnorm(y, mean=lp, sd=sqrt(sigma2out), log = TRUE)+log(poutlier)
     
     ll <- cbind(ll1,ll2)
     maxll <- apply(ll,1,max)
-    #browser()
     negll <- -sum(maxll+log(apply(exp(ll-maxll),1,sum)))
     if (is.nan(negll)) negll <- NA
     if (!is.finite(negll)) negll <- NA
@@ -126,7 +131,7 @@ gaussian.fit.robmixglm <- function(x,y,offset,gh,notrials,EMTol,  calcHessian=TR
   
   if (is.null(starting.values)) {
     if (cores > 1) {
-      cl = parallel::makeCluster(cores, setup_strategy = "sequential")
+      cl <- parallel::makeCluster(cores)
       doParallel::registerDoParallel(cl)
       res = foreach(i = 1:notrials, 
                     .options.RNG=seed[1]) %dorng% {
@@ -134,7 +139,6 @@ gaussian.fit.robmixglm <- function(x,y,offset,gh,notrials,EMTol,  calcHessian=TR
                       outliers <- sample(c(rep(1,noutliers),rep(0,dim(x)[1]-noutliers)),dim(x)[1])
                       fitonemlreg(y,outliers,x,offset,fixed=NULL)}
       parallel::stopCluster(cl)
-#      browser()
       maxll <- -Inf
       nfails <- 0
       for (i in 1:notrials) {
@@ -172,7 +176,7 @@ gaussian.fit.robmixglm <- function(x,y,offset,gh,notrials,EMTol,  calcHessian=TR
     start.val <- starting.values
   }
     
-  thenames <- c(dimnames(x)[[2]],"lpoutlier","tau2","sigma2")
+  thenames <- c(dimnames(x)[[2]],"lpoutlier","sigma2out","sigma2")
   
   names(start.val) <- thenames
   
@@ -206,14 +210,14 @@ gaussian.fit.robmixglm <- function(x,y,offset,gh,notrials,EMTol,  calcHessian=TR
   xcoef <- matrix(coef(robustgaussian.fit)[1:(length(coef(robustgaussian.fit))-3)],ncol=1)
   lpoutlier <- coef(robustgaussian.fit)[length(coef(robustgaussian.fit))-2]
   poutlier <- 1.0/(1+exp(-lpoutlier))
-  tau2 <- coef(robustgaussian.fit)[length(coef(robustgaussian.fit))-1]
-  sigma2 <- coef(robustgaussian.fit)[length(coef(robustgaussian.fit))]
+  sigma2 <- coef(robustgaussian.fit)[length(coef(robustgaussian.fit))-1]
+  sigma2out <- coef(robustgaussian.fit)[length(coef(robustgaussian.fit))]
   
   
   lp <- as.vector(x %*% xcoef)+offset
   
   ll1 <- dnorm(y, mean=lp, sd=sqrt(sigma2),log = TRUE)+log(1-poutlier) 
-  ll2 <- dnorm(y, mean=lp, sd=sqrt(sigma2+tau2),log = TRUE)+log(poutlier)
+  ll2 <- dnorm(y, mean=lp, sd=sqrt(sigma2out),log = TRUE)+log(poutlier)
   
   ll <- cbind(ll1,ll2)
   prop <- t(apply(ll,1,function(x) {
@@ -222,7 +226,7 @@ gaussian.fit.robmixglm <- function(x,y,offset,gh,notrials,EMTol,  calcHessian=TR
     return(exp(x)/sum(exp(x)))
   }))
   
-  coef.names <- c(dimnames(x)[[2]],"Outlier p.","Tau-sq","Sigma-sq")
+  coef.names <- c(dimnames(x)[[2]],"Outlier p.","Sigma-sq", "Sigma-sq Out.")
   return(list(fit=robustgaussian.fit,prop=prop,logLik=-robustgaussian.fit@min,np=length(coef.names),nobs=dim(x)[1],coef.names=coef.names))  
 }
 

@@ -1,3 +1,13 @@
+Changes in robmixglm version 1.2-1
+
+  o changed gaussian so that outliers have variance sigma^2 outliers rather than sigma^2+tau^2.
+  
+  o improved speed of multiple cores
+
+  o changed default number of multiple cores to number of cores divided by 2 (this has only slightly less speed)
+
+  o tidied up vignette
+
 Changes in robmixglm version 1.2-0
 
   o added negative binomial distribution

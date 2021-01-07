@@ -148,8 +148,8 @@ truncpoisson.fit.robmixglm <- function(x,y,offset,gh,notrials,EMTol, calcHessian
   seed <- get(".Random.seed", envir = .GlobalEnv, inherits = FALSE)
   if (is.null(starting.values)) {
     if (cores > 1) {
-      cl = parallel::makeCluster(cores, setup_strategy = "sequential")
-      doParallel::registerDoParallel(cl)
+      cl <- parallel::makeCluster(cores)
+    doParallel::registerDoParallel(cl)
       res = foreach(i = 1:notrials, 
                     .options.RNG=seed[1]) %dorng% {
                       noutliers <- max(1,round(dim(x)[1]*0.2))

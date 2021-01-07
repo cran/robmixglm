@@ -64,7 +64,7 @@ poisson.fit.robmixglm <- function(x,y,offset,gh,notrials,EMTol, calcHessian=TRUE
       }))
       # calculate outlier proportion
       poutlier <- sum(prop[,2])/dim(prop)[1]
-      if (any(is.na(poutlier))) browser()
+
       currlpoutlier <- log(poutlier/(1-poutlier))
       
       if (is.na(poutlier)) stop("poutlier is NA")
@@ -122,7 +122,7 @@ poisson.fit.robmixglm <- function(x,y,offset,gh,notrials,EMTol, calcHessian=TRUE
   
   if (is.null(starting.values)) {
     if (cores > 1) {
-      cl = parallel::makeCluster(cores, setup_strategy = "sequential")
+      cl <- parallel::makeCluster(cores)
       doParallel::registerDoParallel(cl)
       res = foreach(i = 1:notrials, 
                     .options.RNG=seed[1]) %dorng% {
@@ -168,8 +168,6 @@ poisson.fit.robmixglm <- function(x,y,offset,gh,notrials,EMTol, calcHessian=TRUE
   }
   
     thenames <- c(dimnames(x)[[2]],"lpoutlier","tau2")
-  
-    #browser()
     
   names(start.val) <- thenames
   
@@ -216,7 +214,6 @@ poisson.fit.robmixglm <- function(x,y,offset,gh,notrials,EMTol, calcHessian=TRUE
   }))
 
   coef.names <- c(dimnames(x)[[2]],"Outlier p.","Tau-sq")
-  #browser()
   return(list(fit=robustpoisson.fit,prop=prop,logLik=-robustpoisson.fit@min,np=length(coef.names),nobs=dim(x)[1],coef.names=coef.names))  
 }
 

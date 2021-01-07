@@ -72,7 +72,6 @@ nbinom.outlierTest.robmixglm <- function(object, R, parallel, cores) {
         lp <- data$X %*% matrix(nbinom.mle2$par[1:(length(nbinom.mle2$par)-1)],ncol=1) + data$offset
     
     nbinom.loglik <- sum(dnbinom(data$Y,mu=exp(lp),size=nbinom.mle2$par[length(nbinom.mle2$par)],log=TRUE))
-    if (any(is.nan(dnbinom(thedata$Y,mu=exp(lp),size=nbinom.mle2$par[length(nbinom.mle2$par)],log=TRUE)))) browser()
     sim.chisq <- 2*(mixfit$logLik-nbinom.loglik)
     fitno <<- fitno+1
     return(sim.chisq)
@@ -268,10 +267,10 @@ binomial.outlierTest.robmixglm <- function(object, R, parallel, cores) {
 
 outlierTest <-
   ## Short form for generic function
-  function(object, R = 999, cores = max(detectCores() - 1, 1))
+  function(object, R = 999, cores = max(detectCores() %/% 2, 1))
     UseMethod("outlierTest")
 
-outlierTest.robmixglm <- function(object, R = 999, cores = max(detectCores() - 1, 1)) {
+outlierTest.robmixglm <- function(object, R = 999, cores = max(detectCores() %/% 2, 1)) {
   if (!inherits(object, "robmixglm"))
     stop("Use only with 'robmixglm' objects.\n")
   if (cores>1) {

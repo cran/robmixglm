@@ -1,11 +1,16 @@
 robmixglm <-
  function(formula,family=c("gaussian","binomial","poisson","gamma","truncpoisson","nbinom"),data,offset=NULL,quadpoints=21,
-          notrials=50,EMTol=1.0e-4, cores = max(detectCores() - 1, 1), verbose=FALSE) {
+          notrials=50,EMTol=1.0e-4, cores = max(detectCores() %/% 2, 1), verbose=FALSE) {
       
   is.wholenumber <- function(x, tol = .Machine$double.eps^0.5)  abs(x - round(x)) < tol
   
-  call <- match.call()
+  if (cores > max(detectCores() - 1, 1)) {
+    cores <- max(detectCores() - 1, 1)
+    warning(sprintf("cores greater than available, setting to %i cores",max(detectCores() - 1, 1)))
+  }
   
+  call <- match.call()
+
   if (missing(family)) family <- "gaussian"
   
   if (!(family %in% c("gaussian","binomial","poisson","gamma","truncpoisson","nbinom")))

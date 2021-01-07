@@ -154,7 +154,7 @@ binomial.fit.robmixglm <- function(x,y,offset,gh,notrials,EMTol,  calcHessian=TR
   
   if (is.null(starting.values)) {
     if (cores > 1) {
-      cl = parallel::makeCluster(cores, setup_strategy = "sequential")
+      cl <- parallel::makeCluster(cores)
       doParallel::registerDoParallel(cl)
       res = foreach(i = 1:notrials, 
                     .options.RNG=seed[1]) %dorng% {

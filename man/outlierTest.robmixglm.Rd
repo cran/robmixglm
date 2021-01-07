@@ -6,7 +6,7 @@ Test for the presence of outliers.}
 \description{
 Uses the parametric bootstrap to test for the presence of outliers.}
 \usage{
-outlierTest(object,  R = 999,  cores  =  max(detectCores() - 1,  1))
+outlierTest(object,  R = 999,  cores  =  max(detectCores() \%/\% 2,  1))
 }
 \arguments{
   \item{object}{
