@@ -1,3 +1,7 @@
+Changes in robmixglm version 1.2-2
+
+  o changed starting values for fitting in bootstrap outlier test. This causes a slight change in results.
+
 Changes in robmixglm version 1.2-1
 
   o changed gaussian so that outliers have variance sigma^2 outliers rather than sigma^2+tau^2.

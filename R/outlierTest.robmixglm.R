@@ -13,13 +13,9 @@ gaussian.outlierTest.robmixglm <- function(object, R, parallel, cores) {
     gaussian.mle2 <- glm.fit(thedata$X, thedata$Y, 
                              offset = thedata$offset, family = gaussian())
     thesd <- sqrt(gaussian.mle2$deviance/gaussian.mle2$df.residual)
-    # starting values assume 20% outliers and tau^2 of 1
-    starting.values <- c(coef(gaussian.mle2)[1:length(coef(gaussian.mle2))],log(0.2/(1-0.2)),1,thesd)
-    if (fitno==1) mixfit <- suppressWarnings(gaussian.fit.robmixglm(thedata$X, thedata$Y, 
-                                       offset = thedata$offset,gh = norm.gauss.hermite(object$quadpoints),
-                                       notrials=object$notrials, EMTol = object$EMTol, calcHessian=FALSE,
-                                       verbose=FALSE, starting.values=NULL, cores=1))
-     else mixfit <- suppressWarnings(gaussian.fit.robmixglm(thedata$X, thedata$Y, 
+    # starting values assume 20% outliers
+    starting.values <- c(coef(gaussian.mle2)[1:length(coef(gaussian.mle2))],log(0.2/(1-0.2)),2*thesd,0.5*thesd)
+    mixfit <- suppressWarnings(gaussian.fit.robmixglm(thedata$X, thedata$Y, 
                                        offset = thedata$offset,gh = norm.gauss.hermite(object$quadpoints),
                                        notrials=object$notrials, EMTol = object$EMTol, calcHessian=FALSE,
                                        verbose=FALSE, starting.values=starting.values, cores=1))
@@ -58,12 +54,8 @@ nbinom.outlierTest.robmixglm <- function(object, R, parallel, cores) {
     nbinom.mle2 <- fitnegbin(data$Y,object$X,data$offset)
 
     # starting values assume 20% outliers and tau^2 of 1
-    starting.values <- c(nbinom.mle2$par[1:(length(nbinom.mle2$par)-1)],log(0.2/(1-0.2)),1,exp(nbinom.mle2$par[length(nbinom.mle2$par)]))
-    if (fitno==1) mixfit <- suppressWarnings(nbinom.fit.robmixglm(data$X, data$Y, 
-                                       offset = data$offset,gh = norm.gauss.hermite(object$quadpoints),
-                                       notrials=object$notrials, EMTol = object$EMTol, calcHessian=FALSE,
-                                       verbose=object$verbose, starting.values=NULL, cores=1))
-     else mixfit <- suppressWarnings(nbinom.fit.robmixglm(data$X, data$Y, 
+    starting.values <- c(nbinom.mle2$par[1:(length(nbinom.mle2$par)-1)],log(0.2/(1-0.2)),0.2,exp(nbinom.mle2$par[length(nbinom.mle2$par)]))
+    mixfit <- suppressWarnings(nbinom.fit.robmixglm(data$X, data$Y, 
                                        offset = data$offset,gh = norm.gauss.hermite(object$quadpoints),
                                        notrials=object$notrials, EMTol = object$EMTol, calcHessian=FALSE,
                                        verbose=object$verbose, starting.values=starting.values, cores=1))
@@ -103,12 +95,8 @@ gamma.outlierTest.robmixglm <- function(object, R, parallel, cores) {
     gamma.mle2 <- glm.fit(thedata$X, thedata$Y, 
                           offset = thedata$offset, family = Gamma(link="log"))
     # starting values assume 20% outliers and tau^2 of 1
-    starting.values <- c(coef(gamma.mle2)[1:length(coef(gamma.mle2))],log(0.2/(1-0.2)),1,sum(gamma.mle2$residuals^2)/gamma.mle2$df.residual)
-    if (fitno==1)  mixfit <- suppressWarnings(gamma.fit.robmixglm(thedata$X, thedata$Y, 
-                                    offset = thedata$offset,gh = norm.gauss.hermite(object$quadpoints),
-                                    notrials=object$notrials, EMTol = object$EMTol, calcHessian=FALSE,
-                                    verbose=FALSE, starting.values=NULL, cores=1))
-     else mixfit <- suppressWarnings(gamma.fit.robmixglm(thedata$X, thedata$Y, 
+    starting.values <- c(coef(gamma.mle2)[1:length(coef(gamma.mle2))],log(0.2/(1-0.2)),0.1,sum(gamma.mle2$residuals^2)/gamma.mle2$df.residual)
+    mixfit <- suppressWarnings(gamma.fit.robmixglm(thedata$X, thedata$Y, 
                                     offset = thedata$offset,gh = norm.gauss.hermite(object$quadpoints),
                                     notrials=object$notrials, EMTol = object$EMTol, calcHessian=FALSE,
                                     verbose=FALSE, starting.values=starting.values, cores=1))
@@ -148,12 +136,8 @@ truncpoisson.outlierTest.robmixglm <- function(object, R, parallel, cores) {
                                        family=pospoisson, offset=data$offset)
     
     # starting values assume 20% outliers and tau^2 of 1
-    starting.values <- c(coef(truncpoisson.mle2)[1:length(coef(truncpoisson.mle2))],log(0.2/(1-0.2)),1)
-    if (fitno==1) mixfit <- suppressWarnings(truncpoisson.fit.robmixglm(data$X, data$Y, 
-                                           offset = thedata$offset,gh = norm.gauss.hermite(object$quadpoints),
-                                           notrials=object$notrials, EMTol = object$EMTol, calcHessian=FALSE,
-                                           verbose=object$verbose, starting.values=NULL, cores=1))
-    else mixfit <- suppressWarnings(truncpoisson.fit.robmixglm(data$X, data$Y, 
+    starting.values <- c(coef(truncpoisson.mle2)[1:length(coef(truncpoisson.mle2))],log(0.2/(1-0.2)),0.1)
+    mixfit <- suppressWarnings(truncpoisson.fit.robmixglm(data$X, data$Y, 
                                            offset = thedata$offset,gh = norm.gauss.hermite(object$quadpoints),
                                            notrials=object$notrials, EMTol = object$EMTol, calcHessian=FALSE,
                                            verbose=object$verbose, starting.values=starting.values, cores=1))
@@ -193,12 +177,8 @@ poisson.outlierTest.robmixglm <- function(object, R, parallel, cores) {
       poisson.mle2 <- glm.fit(thedata$X, thedata$Y, 
                               offset = thedata$offset, family = poisson())
       # starting values assume 20% outliers and tau^2 of 1
-      starting.values <- c(coef(poisson.mle2)[1:length(coef(poisson.mle2))],log(0.2/(1-0.2)),1)
-      if (fitno==1) mixfit <- suppressWarnings(poisson.fit.robmixglm(thedata$X, thedata$Y, 
-                                        offset = thedata$offset,gh = norm.gauss.hermite(object$quadpoints),
-                                        notrials=object$notrials, EMTol = object$EMTol, calcHessian=TRUE,
-                                        verbose=object$verbose, starting.values=NULL, cores=1))
-      else mixfit <- suppressWarnings(poisson.fit.robmixglm(thedata$X, thedata$Y, 
+      starting.values <- c(coef(poisson.mle2)[1:length(coef(poisson.mle2))],log(0.2/(1-0.2)),0.1)
+      mixfit <- suppressWarnings(poisson.fit.robmixglm(thedata$X, thedata$Y, 
                                         offset = thedata$offset,gh = norm.gauss.hermite(object$quadpoints),
                                         notrials=object$notrials, EMTol = object$EMTol, calcHessian=FALSE,
                                         verbose=object$verbose, starting.values=starting.values, cores=1))

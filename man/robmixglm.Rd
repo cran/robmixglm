@@ -51,8 +51,10 @@ Aitkin, M. (1996). A general maximum likelihood analysis of overdispersion in ge
 \author{Ken Beath}
 \examples{
 \donttest{
+if (requireNamespace("MASS", quietly = TRUE)) {
 library(MASS)
 data(forbes)
 forbes.robustmix <- robmixglm(100*log10(pres)~bp, data = forbes, cores = 1)
+}
 }}
 \keyword{multivariate}
