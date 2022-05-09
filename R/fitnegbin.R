@@ -12,6 +12,7 @@ fitnegbin <- function(y,x,offset) {
   pois.glm <- glm(y~x[,-1], family=poisson, offset=offset)
   initp <- c(coef(pois.glm),1)
   fit <- nlminb(initp, negll, lower = c(rep(-Inf,length(initp)-1),0),   x=x, y=y, offset=offset)
-  if (fit$convergence>0) stop("Convergence failed")
+# allow for singular convergence
+  if (fit$convergence>1) stop("Convergence failed")
   return(fit)
 }

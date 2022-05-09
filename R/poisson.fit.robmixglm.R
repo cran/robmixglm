@@ -166,7 +166,9 @@ poisson.fit.robmixglm <- function(x,y,offset,gh,notrials,EMTol, calcHessian=TRUE
   } else {
     start.val <- starting.values
   }
-  
+
+    if (is.null(start.val)) stop("Cannot find valid starting values") 
+    
     thenames <- c(dimnames(x)[[2]],"lpoutlier","tau2")
     
   names(start.val) <- thenames
@@ -204,7 +206,7 @@ poisson.fit.robmixglm <- function(x,y,offset,gh,notrials,EMTol, calcHessian=TRUE
   lp <- as.vector(x %*% xcoef)+offset
   
   ll1 <- dpois(y, exp(lp), log = TRUE)+log(1-poutlier) 
-    ll2 <- llrandpoiscpp(y, lp, tau2, gh)+log(poutlier)
+  ll2 <- llrandpoiscpp(y, lp, tau2, gh)+log(poutlier)
   
   ll <- cbind(ll1,ll2)
   prop <- t(apply(ll,1,function(x) {

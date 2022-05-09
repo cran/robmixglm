@@ -128,7 +128,7 @@ nbinom.fit.robmixglm <- function(x,y,offset,gh,notrials,EMTol,  calcHessian=TRUE
     if (!is.finite(negll)) negll <- NA
     return(negll)
   }
-  
+
   if (!exists(".Random.seed", envir = .GlobalEnv, inherits = FALSE)) runif(1)
   seed <- get(".Random.seed", envir = .GlobalEnv, inherits = FALSE)
   
@@ -178,6 +178,8 @@ nbinom.fit.robmixglm <- function(x,y,offset,gh,notrials,EMTol,  calcHessian=TRUE
   } else {
     start.val <- starting.values
   }
+
+  if(is.null(start.val)) stop("Cannot find valid starting values") 
   
   thenames <- c(dimnames(x)[[2]],"lpoutlier","theta","thetaout")
   

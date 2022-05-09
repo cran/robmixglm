@@ -141,6 +141,7 @@ gaussian.fit.robmixglm <- function(x,y,offset,gh,notrials,EMTol,  calcHessian=TR
       parallel::stopCluster(cl)
       maxll <- -Inf
       nfails <- 0
+ 
       for (i in 1:notrials) {
         if (verbose) cat(c(res[[i]]$ll,res[[i]]$start.val),"\n")
         if (is.na(res[[i]]$ll)) nfails <- nfails+1
@@ -175,6 +176,8 @@ gaussian.fit.robmixglm <- function(x,y,offset,gh,notrials,EMTol,  calcHessian=TR
   } else {
     start.val <- starting.values
   }
+
+  if(is.null(start.val)) stop("Cannot find valid starting values") 
     
   thenames <- c(dimnames(x)[[2]],"lpoutlier","sigma2out","sigma2")
   

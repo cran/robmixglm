@@ -39,7 +39,7 @@ robmixglm <-
     if (dim(Y)[2]!=2) stop("Binomial data must be in success failure form.")
     if (any(Y[,1] <0) | any(Y[,2] <0)) stop("Binomial data must be positive.")
     if (any(!is.wholenumber(Y[,1]) | !is.wholenumber(Y[,2]))) stop("Binomial data must be integers.")
-   } else if ((class(Y)!="numeric") & (class(Y)!="integer")) stop("Data must be a single column") 
+   } else if ((!inherits(Y,"numeric") & !inherits(Y,"integer"))) stop("Data must be a single column") 
   
   if (family=="poisson") {
     if (any(Y <0)) stop("Poisson data must be positive.")

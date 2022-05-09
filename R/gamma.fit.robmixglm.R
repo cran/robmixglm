@@ -173,6 +173,8 @@ gamma.fit.robmixglm <- function(x,y,offset,gh,notrials,EMTol,  calcHessian=TRUE,
   } else {
     start.val <- starting.values
   }
+
+  if(is.null(start.val)) stop("Cannot find valid starting values") 
   
   thenames <- c(dimnames(x)[[2]],"lpoutlier","tau2", "phi")
   
