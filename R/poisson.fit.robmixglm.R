@@ -29,7 +29,9 @@ poisson.fit.robmixglm <- function(x,y,offset,gh,notrials,EMTol, calcHessian=TRUE
         
     tryCatch({
       if (is.null(starting.values)) {
-      robust.poisson.prefit <- glm(y~x[,colnames(x)!="(Intercept)"],family=poisson(), offset=offset,subset=(outliers!=1))
+        
+      if (dim(x)[2] == 1) robust.poisson.prefit <- glm(y~1,family=poisson(), offset=offset,subset=(outliers!=1))
+      else robust.poisson.prefit <- glm(y~x[,colnames(x)!="(Intercept)"],family=poisson(), offset=offset,subset=(outliers!=1))
 
     prefit.coef <- coef(robust.poisson.prefit)
     # assume 20% outliers as a starting point

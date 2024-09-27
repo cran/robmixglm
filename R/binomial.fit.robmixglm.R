@@ -60,7 +60,11 @@ binomial.fit.robmixglm <- function(x,y,offset,gh,notrials,EMTol,  calcHessian=TR
     
     tryCatch({
       if (is.null(starting.values)) {
-        robust.binomial.prefit <- glm(cbind(y[,1],y[,2])~x[,colnames(x)!="(Intercept)"],family=binomial(), offset=offset,
+        
+        
+        if (dim(x)[2] == 1) robust.binomial.prefit <- glm(cbind(y[,1],y[,2])~1,family=binomial(), offset=offset,
+                                                          subset=(outliers!=1))
+        else robust.binomial.prefit <- glm(cbind(y[,1],y[,2])~x[,colnames(x)!="(Intercept)"],family=binomial(), offset=offset,
                                       subset=(outliers!=1))
         
         
