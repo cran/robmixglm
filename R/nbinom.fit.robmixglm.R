@@ -32,10 +32,11 @@ nbinom.fit.robmixglm <- function(x,y,offset,gh,notrials,EMTol,  calcHessian=TRUE
     tryCatch({
       # get the starting values
       if (is.null(starting.values)) {
-        
+
         robust.nbinom.prefit <- fitnegbin(y[(outliers!=1)],x[(outliers!=1),],offset[(outliers!=1)])
         
         prefit.coef <- robust.nbinom.prefit$par[1:(length(robust.nbinom.prefit$par)-1)]
+
         # assume 20% outliers as a starting point
         currlpoutlier <- log(0.2/(1-0.2))
         currxcoef <- matrix(prefit.coef[1:(length(prefit.coef))],ncol=1)

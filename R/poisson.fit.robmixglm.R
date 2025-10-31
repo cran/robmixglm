@@ -29,10 +29,11 @@ poisson.fit.robmixglm <- function(x,y,offset,gh,notrials,EMTol, calcHessian=TRUE
         
     tryCatch({
       if (is.null(starting.values)) {
+       
+        #browser()
         
-      if (dim(x)[2] == 1) robust.poisson.prefit <- glm(y~1,family=poisson(), offset=offset,subset=(outliers!=1))
-      else robust.poisson.prefit <- glm(y~x[,colnames(x)!="(Intercept)"],family=poisson(), offset=offset,subset=(outliers!=1))
-
+      robust.poisson.prefit <- glm(y~-1+x,family=poisson(), offset=offset,subset=(outliers!=1))
+      
     prefit.coef <- coef(robust.poisson.prefit)
     # assume 20% outliers as a starting point
     currlpoutlier <- log(0.2/(1-0.2))
@@ -152,7 +153,9 @@ poisson.fit.robmixglm <- function(x,y,offset,gh,notrials,EMTol, calcHessian=TRUE
           noutliers <- max(1,round(dim(x)[1]*0.2))
           outliers <- sample(c(rep(1,noutliers),rep(0,dim(x)[1]-noutliers)),dim(x)[1])
           if (verbose) print(sprintf("Trial %i", i))
+          #browser()
           thefit <- fitonemlreg(y,outliers,x,offset,fixed=NULL)
+          #browser()
           if (verbose) print(sprintf("Likelihood for trial %.4f", thefit$ll))
           if (verbose) print(thefit$start.val)
           if (is.na(thefit$ll)) nfails <- nfails+1

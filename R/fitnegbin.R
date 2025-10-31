@@ -9,7 +9,7 @@ negll <- function(p, y, x, offset) {
 
 fitnegbin <- function(y,x,offset) {
   # obtain starting values
-  pois.glm <- glm(y~x[,-1], family=poisson, offset=offset)
+  pois.glm <- glm(y~-1+x, family=poisson, offset=offset)
   initp <- c(coef(pois.glm),1)
   fit <- nlminb(initp, negll, lower = c(rep(-Inf,length(initp)-1),0),   x=x, y=y, offset=offset)
 # allow for singular convergence

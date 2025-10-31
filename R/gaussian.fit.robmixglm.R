@@ -32,8 +32,7 @@ gaussian.fit.robmixglm <- function(x,y,offset,gh,notrials,EMTol,  calcHessian=TR
     tryCatch({
       if (is.null(starting.values)) {
       
-      if (dim(x)[2] == 1) robust.gaussian.prefit <- lm(y~1,offset=offset,subset=(outliers!=1))
-      else robust.gaussian.prefit <- lm(y~x[,colnames(x)!="(Intercept)"],offset=offset,subset=(outliers!=1))
+      robust.gaussian.prefit <- lm(y~-1+x,offset=offset,subset=(outliers!=1))
       
       prefit.coef <- coef(robust.gaussian.prefit)
       # assume 20% outliers as a starting point

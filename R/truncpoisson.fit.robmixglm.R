@@ -57,9 +57,7 @@ truncpoisson.fit.robmixglm <- function(x,y,offset,gh,notrials,EMTol, calcHessian
     tryCatch({
       if (is.null(starting.values)) {
         
-        if (dim(x)[2] == 1) robust.truncpoisson.prefit <- vglm(y~1,
-                                family=pospoisson, offset=offset,subset=(outliers!=1))
-          else robust.truncpoisson.prefit <- vglm(y~x[,colnames(x)!="(Intercept)"],
+  robust.truncpoisson.prefit <- vglm(y~-1+x,
                                 family=pospoisson, offset=offset,subset=(outliers!=1))
         
         prefit.coef <- coef(robust.truncpoisson.prefit)

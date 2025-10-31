@@ -32,8 +32,7 @@ gamma.fit.robmixglm <- function(x,y,offset,gh,notrials,EMTol,  calcHessian=TRUE,
     tryCatch({
       if (is.null(starting.values)) {
       
-      if (dim(x)[2] == 1) robust.gamma.prefit <- glm(y~1,family=Gamma(link='log'), offset=offset,subset=(outliers!=1))
-      else robust.gamma.prefit <- glm(y~x[,colnames(x)!="(Intercept)"],family=Gamma(link='log'), offset=offset,subset=(outliers!=1))
+      robust.gamma.prefit <- glm(y~-1+x,family=Gamma(link='log'), offset=offset,subset=(outliers!=1))
       
       # get the starting values
       prefit.coef <- coef(robust.gamma.prefit)
