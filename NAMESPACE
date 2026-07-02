@@ -46,13 +46,11 @@ importFrom("boot", "boot")
 
 importFrom("numDeriv", "hessian")
 
-importFrom("parallel", "detectCores","makeCluster","stopCluster")
+importFrom("parallel", "detectCores")
+# ,"makeCluster","stopCluster"
+#importFrom("doParallel", "registerDoParallel")
 
-importFrom("doParallel", "registerDoParallel")
-
-importFrom("foreach", "foreach", "%dopar%")
-
-importFrom("doRNG", "%dorng%")
+#importFrom("foreach", "foreach", "%dopar%")
 
 # S3 methods
 S3method(logLik, robmixglm)

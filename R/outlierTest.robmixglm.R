@@ -247,12 +247,18 @@ binomial.outlierTest.robmixglm <- function(object, R, parallel, cores) {
 
 outlierTest <-
   ## Short form for generic function
-  function(object, R = 999, cores = max(detectCores() %/% 2, 1))
+  function(object, R = 999, cores = max(detectCores(logical = FALSE)-1, 1))
     UseMethod("outlierTest")
 
-outlierTest.robmixglm <- function(object, R = 999, cores = max(detectCores() %/% 2, 1)) {
+outlierTest.robmixglm <- function(object, R = 999, cores = max(detectCores(logical = FALSE)-1, 1)) {
   if (!inherits(object, "robmixglm"))
     stop("Use only with 'robmixglm' objects.\n")
+  
+  if (cores > max(detectCores(logical = FALSE)-1, 1)) {
+    cores <- max(detectCores(logical = FALSE)-1, 1)
+    warning(sprintf("cores greater than available, setting to %i cores",max(detectCores(logical = FALSE)-1, 1)))
+  }
+  
   if (cores>1) {
     if(.Platform$OS.type=="unix") parallel <- "multicore"
     else parallel <- "snow"

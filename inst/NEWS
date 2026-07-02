@@ -1,3 +1,17 @@
+Changes in robmixglm version 1.2-8
+
+  o change default number of cores in fit to half physical cores
+
+Changes in robmixglm version 1.2-7
+
+  o improved parallel processing to improve execution time
+
+  o change default EMTol to 1.0e-5 to improve convergence
+
+Changes in robmixglm version 1.2-6
+
+  o replace doRNG with dopar
+
 Changes in robmixglm version 1.2-5
 
   o fix bug which caused fail when fitting models without intercept

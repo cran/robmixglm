@@ -6,7 +6,7 @@ Test for the presence of outliers.}
 \description{
 Uses the parametric bootstrap to test for the presence of outliers.}
 \usage{
-outlierTest(object,  R = 999,  cores  =  max(detectCores() \%/\% 2,  1))
+outlierTest(object,  R = 999,  cores  =  max(detectCores(logical = FALSE)-1, 1))
 }
 \arguments{
   \item{object}{
@@ -26,9 +26,13 @@ Ken Beath <ken.beath@mq.edu.au>
 }
 \examples{
 \donttest{
+# note that I have used cores=1 to allow testing
+# in practice this should be removed to use the default
 hospcosts.robustmix <- robmixglm(costs~adm+age+dest+ins+loglos+sex, family = "gamma", 
     data = hospcosts, cores = 1)
 summary(hospcosts.robustmix)
+# note that I have used cores=1 to allow testing
+# in practice this should be removed to use the default
 summary(outlierTest(hospcosts.robustmix,  cores  =  1))
 }}
 \keyword{method}

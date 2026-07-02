@@ -1,8 +1,38 @@
 gaussian.fit.robmixglm <- function(x,y,offset,gh,notrials,EMTol,  calcHessian=TRUE, cores, verbose,   starting.values=NULL) {
   
-  if (!is.null(starting.values)) notrials <- 1
+  if (!is.null(starting.values)) {
+    notrials <- 1
+    cores <- 1
+  }
   
-  fitonemlreg <- function(y,outliers,x=NULL,offset=NULL,fixed) {
+  #browser()
+  
+  ll.robustgaussian <- function(p){
+    
+    xcoef <- p[1:(length(p)-3)]
+    lpoutlier <- p[length(p)-2]
+    sigma2 <- p[length(p)-1]
+    sigma2out <- p[length(p)]
+    
+    poutlier <- 1.0/(1+exp(-lpoutlier))
+    
+    lp <- as.vector(x %*% xcoef)+offset
+    
+    ll1 <- dnorm(y, mean=lp, sd=sqrt(sigma2), log = TRUE)+log(1-poutlier)
+    
+    ll2 <- dnorm(y, mean=lp, sd=sqrt(sigma2out), log = TRUE)+log(poutlier)
+    
+    ll <- cbind(ll1,ll2)
+    maxll <- apply(ll,1,max)
+    negll <- -sum(maxll+log(apply(exp(ll-maxll),1,sum)))
+    if (is.nan(negll)) negll <- NA
+    if (!is.finite(negll)) negll <- NA
+    return(negll)
+  }
+  
+  thestatistic <- function(data, ...) {
+    
+    #browser()
     
     rlreg <- function(xcoef,lpoutlier,sigma2, sigma2out,x,y,offset,prop) {
       poutlier <- 1.0/(1+exp(-lpoutlier))
@@ -24,14 +54,22 @@ gaussian.fit.robmixglm <- function(x,y,offset,gh,notrials,EMTol,  calcHessian=TR
       return(negll)
     }
     
-    optimrlreg <- function(p,lpoutlier,x,y,offset,prop,fixed) {
-      p[names(fixed)] <- fixed
+    optimrlreg <- function(p,lpoutlier,x,y,offset,prop) {
       return(rlreg(matrix(p[1:(length(p)-2)],ncol=1),lpoutlier,p[length(p)-1],p[length(p)],x,y,offset,prop))
     }
-          
+    #browser()
+    
+    y <- data[,1]
+    x <- data[,3:dim(data)[2]]
+    if (dim(data)[2] >=3) offset <- data[,2]
+    else offset <- NULL
+    
     tryCatch({
       if (is.null(starting.values)) {
-      
+ 
+      noutliers <- max(1,round(dim(data)[1]*0.2))
+      outliers <- sample(c(rep(1,noutliers),rep(0,dim(data)[1]-noutliers)))
+
       robust.gaussian.prefit <- lm(y~-1+x,offset=offset,subset=(outliers!=1))
       
       prefit.coef <- coef(robust.gaussian.prefit)
@@ -41,12 +79,12 @@ gaussian.fit.robmixglm <- function(x,y,offset,gh,notrials,EMTol,  calcHessian=TR
       currxcoef <- ifelse(is.na(currxcoef),0,currxcoef)
       currsigma2 <- summary(robust.gaussian.prefit)$sigma^2
       currsigma2out <- min(rgamma(1,2,1),5)*summary(robust.gaussian.prefit)$sigma^2
-      } else {
+    } else {
       currxcoef <- matrix(starting.values[1:(length(starting.values)-3)],ncol=1)
       currlpoutlier <- starting.values[length(starting.values)-2]
-       currsigma2 <- starting.values[length(starting.values)]
-       currsigma2out <- starting.values[length(starting.values)-1]
-      }
+      currsigma2 <- starting.values[length(starting.values)-1]
+      currsigma2out <- starting.values[length(starting.values)]
+    }
     currll <- -1.0e100
     nem <- 0
     
@@ -77,13 +115,12 @@ gaussian.fit.robmixglm <- function(x,y,offset,gh,notrials,EMTol,  calcHessian=TR
       
       results.nlm <- suppressWarnings(nlminb(startvals,optimrlreg,
                                              lower=c(rep(-Inf,length(currxcoef)),rep(0,2)),
-                                             #control=list(trace=1,iter.max=10),
+                                             #control=list(trace=1,iter.max=5),
                                              control=list(trace=0,iter.max=5),
                                              lpoutlier=currlpoutlier,
                                              prop=prop,
-                                             y=y,x=x,offset=offset,
-                                             fixed=fixed))
-   
+                                             y=y,x=x,offset=offset))
+      
       currxcoef <- matrix(as.numeric(results.nlm$par)[1:(length(results.nlm$par)-2)],ncol=1)
       currsigma2 <- as.numeric(results.nlm$par)[length(results.nlm$par)]
       currsigma2out <- as.numeric(results.nlm$par)[length(results.nlm$par)-1]
@@ -97,90 +134,62 @@ gaussian.fit.robmixglm <- function(x,y,offset,gh,notrials,EMTol,  calcHessian=TR
       lastll <- currll
       currll <- -rlreg(currxcoef,currlpoutlier,currsigma2,currsigma2out,x,y,offset)
       if (verbose) print(sprintf("Likelihood at end of EM step %.4f", currll))
-       if (abs((lastll-currll)/currll)<EMTol) break()
+      if (abs((lastll-currll)/currll)<EMTol) break()
       if (nem >100) break()
     }
-    return(list(ll=currll,start.val=c(currxcoef,currlpoutlier,currsigma2,currsigma2out)))    
+    return(c(currll,currxcoef,currlpoutlier,currsigma2,currsigma2out))   
     },
-    error=function(e) return(list(ll=NA))
+    error=function(e) return(rep(NA,5))
     )
   }
   
-  ll.robustgaussian <- function(p){
-    
-    xcoef <- p[1:(length(p)-3)]
-    lpoutlier <- p[length(p)-2]
-    sigma2 <- p[length(p)-1]
-    sigma2out <- p[length(p)]
-    
-    poutlier <- 1.0/(1+exp(-lpoutlier))
-    
-    lp <- as.vector(x %*% xcoef)+offset
-    
-    ll1 <- dnorm(y, mean=lp, sd=sqrt(sigma2), log = TRUE)+log(1-poutlier)
-    
-    ll2 <- dnorm(y, mean=lp, sd=sqrt(sigma2out), log = TRUE)+log(poutlier)
-    
-    ll <- cbind(ll1,ll2)
-    maxll <- apply(ll,1,max)
-    negll <- -sum(maxll+log(apply(exp(ll-maxll),1,sum)))
-    if (is.nan(negll)) negll <- NA
-    if (!is.finite(negll)) negll <- NA
-    return(negll)
-  }
-    if (!exists(".Random.seed", envir = .GlobalEnv, inherits = FALSE)) runif(1)
-    seed <- get(".Random.seed", envir = .GlobalEnv, inherits = FALSE)
-  
   if (is.null(starting.values)) {
-    if (cores > 1) {
-      cl <- parallel::makeCluster(cores)
-      doParallel::registerDoParallel(cl)
-      res = foreach(i = 1:notrials, 
-                    .options.RNG=seed[1]) %dorng% {
-                      noutliers <- max(1,round(dim(x)[1]*0.2))
-                      outliers <- sample(c(rep(1,noutliers),rep(0,dim(x)[1]-noutliers)),dim(x)[1])
-                      fitonemlreg(y,outliers,x,offset,fixed=NULL)}
-      parallel::stopCluster(cl)
-      maxll <- -Inf
-      nfails <- 0
- 
-      for (i in 1:notrials) {
-        if (verbose) cat(c(res[[i]]$ll,res[[i]]$start.val),"\n")
-        if (is.na(res[[i]]$ll)) nfails <- nfails+1
-        else {
-          if (res[[i]]$ll>maxll) {
-            maxll <- res[[i]]$ll
-            start.val <- res[[i]]$start.val
-          }
-        }
+  bootdata <- cbind(y, offset, x)
+  
+  if (!exists(".Random.seed", envir = .GlobalEnv, inherits = FALSE)) runif(1)
+  seed <- get(".Random.seed", envir = .GlobalEnv, inherits = FALSE)
+  
+  
+  if (cores>1) {
+    if(.Platform$OS.type=="unix")  parallel <- "multicore"
+    else parallel <- "snow" }
+  else parallel <- "no"
+   if (notrials == 1) {
+    theboot <- matrix(thestatistic(bootdata), nrow=1)
+  } else 
+  theboot <- boot(bootdata, thestatistic, R=notrials, sim = "parametric",
+                  ran.gen = function(d, p) d,
+                  parallel = parallel,
+                  ncpus = cores)$t
+
+  res <- vector("list", length = notrials)
+  for (i in 1:notrials) {
+    res[[i]] <- list(logLik=theboot[i,1],start.val=theboot[i,2:dim(theboot)[2]])
+  }
+  
+  maxll <- -Inf
+  nfails <- 0
+  
+  #browser()
+  for (i in 1:notrials) {
+    if (verbose) cat(c(res[[i]]$logLik,res[[i]]$start.val),"\n")
+    if (is.na(res[[i]]$logLik)) nfails <- nfails+1
+    else {
+      if (res[[i]]$logLik>maxll) {
+        maxll <- res[[i]]$logLik
+        start.val <- res[[i]]$start.val
       }
-      if (nfails > 0) warning(sprintf("Failed to obtain starting values for %i starting sets", nfails))
-    } else {
-      maxll <- -Inf
-      nfails <- 0
-      for (i in 1:notrials) {
-          noutliers <- max(1,round(dim(x)[1]*0.2))
-          outliers <- sample(c(rep(1,noutliers),rep(0,dim(x)[1]-noutliers)),dim(x)[1])
-          if (verbose) print(sprintf("Trial %i", i))
-          thefit <- fitonemlreg(y,outliers,x,offset,fixed=NULL)
-          if (verbose) print(sprintf("Likelihood for trial %.4f", thefit$ll))
-          if (verbose) print(thefit$start.val)
-          if (is.na(thefit$ll)) nfails <- nfails+1
-          else {
-            if (thefit$ll>maxll) {
-              maxll <- thefit$ll
-              start.val <- thefit$start.val
-            }
-          }
-        }
-      if (nfails > 0) warning(sprintf("Failed to obtain starting values for %i starting sets", nfails))
     }
+    if (nfails > 0) warning(sprintf("Failed to obtain starting values for %i starting sets", nfails))
+  }
   } else {
     start.val <- starting.values
   }
+  
+#browser()
 
   if(is.null(start.val)) stop("Cannot find valid starting values") 
-    
+  
   thenames <- c(dimnames(x)[[2]],"lpoutlier","sigma2out","sigma2")
   
   names(start.val) <- thenames
@@ -192,9 +201,9 @@ gaussian.fit.robmixglm <- function(x,y,offset,gh,notrials,EMTol,  calcHessian=TR
   names(lower.val) <- names(start.val)
   
   
-  if(verbose) thecontrol <- list(eval.max=1000,iter.max=1000,eval.max=2000,trace=5)
+  if (verbose) thecontrol <- list(eval.max=1000,iter.max=1000,eval.max=2000,trace=5)
   else thecontrol <- list(eval.max=1000,iter.max=1000,eval.max=2000)
- 
+  
   robustgaussian.fit <- mle2(ll.robustgaussian,start=start.val,vecpar=TRUE,
                              optimizer="user",optimfun=myoptim,
                              data=list(y=y,x=x,offset=offset),
@@ -205,13 +214,11 @@ gaussian.fit.robmixglm <- function(x,y,offset,gh,notrials,EMTol,  calcHessian=TR
   if (calcHessian) {
     thecoef <- coef(robustgaussian.fit)
     ncoef <- length(thecoef)
-    if (thecoef[ncoef-1]<1e-4) thecoef[ncoef-1] <- 1e-4
+    if (thecoef[ncoef]<1e-4) thecoef[ncoef] <- 1e-4
     robustgaussian.fit@details$hessian <- optimHess(thecoef,ll.robustgaussian,control=list(ndeps=c(rep(1.0e-5,length(thecoef)))))
     robustgaussian.fit@vcov <- ginv(robustgaussian.fit@details$hessian)
   }
-  # robustgaussian.fit@vcov <- myvcov
-  #if (any(is.nan(sqrt(diag(robustgaussian.fit@vcov))))) warning("Error in calculating standard errors.")
-  
+ 
   xcoef <- matrix(coef(robustgaussian.fit)[1:(length(coef(robustgaussian.fit))-3)],ncol=1)
   lpoutlier <- coef(robustgaussian.fit)[length(coef(robustgaussian.fit))-2]
   poutlier <- 1.0/(1+exp(-lpoutlier))
@@ -233,5 +240,4 @@ gaussian.fit.robmixglm <- function(x,y,offset,gh,notrials,EMTol,  calcHessian=TR
   
   coef.names <- c(dimnames(x)[[2]],"Outlier p.","Sigma-sq", "Sigma-sq Out.")
   return(list(fit=robustgaussian.fit,prop=prop,logLik=-robustgaussian.fit@min,np=length(coef.names),nobs=dim(x)[1],coef.names=coef.names))  
-}
-
+} 

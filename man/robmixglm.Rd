@@ -7,8 +7,8 @@ Fits robust generalized linear models and variants described in Beath (2018).
 \usage{
 robmixglm(formula, family = c("gaussian", "binomial", "poisson", 
 "gamma", "truncpoisson", "nbinom"), data, offset = NULL, 
-quadpoints = 21, notrials = 50, EMTol = 1.0e-4, cores  =  max(detectCores() \%/\% 2,  1), 
-verbose = FALSE)
+quadpoints = 21, notrials = 50, EMTol = 1.0e-5,
+cores  =  max(detectCores(logical = FALSE) \%/\% 2, 1), verbose = FALSE)
 }
 %- maybe also 'usage' for other objects documented here.
 \arguments{
@@ -54,6 +54,8 @@ Aitkin, M. (1996). A general maximum likelihood analysis of overdispersion in ge
 if (requireNamespace("MASS", quietly = TRUE)) {
 library(MASS)
 data(forbes)
+# note that I have used cores=1 to allow testing
+# in practice this should be removed to use the default
 forbes.robustmix <- robmixglm(100*log10(pres)~bp, data = forbes, cores = 1)
 }
 }}
