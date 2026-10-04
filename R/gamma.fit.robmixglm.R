@@ -223,7 +223,7 @@ gamma.fit.robmixglm <- function(x,y,offset,gh,notrials,EMTol,  calcHessian=TRUE,
   
   lp <- as.vector(x %*% xcoef)+offset
   
-  ll1 <- dgamma(y, exp(lp), TRUE)+log(1-poutlier) 
+  ll1 <- dgamma(y, shape=1.0/phi,rate=1.0/(phi*exp(lp)), log = TRUE)+log(1-poutlier) 
   ll2 <- llrandgammacpp(y, lp, tau2, phi, gh)+log(poutlier)
   
   ll <- cbind(ll1,ll2)

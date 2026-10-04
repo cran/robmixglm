@@ -5,7 +5,8 @@ outlierProbs <-
 outlierProbs.robmixglm <- function(object) {
   if (!inherits(object, "robmixglm"))
     stop("Use only with 'robmixglm' objects.\n")
-  outliers <- object$prop[,2]
-  class(outliers) <- "outlierProbs"
+  
+  warning("outlierProbs has been replaced by outlierProbsMix, and will be removed in a future update")
+  outliers <- outlierProbsMix.robmixglm(object) 
   return(outliers)
 }

@@ -1,3 +1,11 @@
+Changes in robmixglm version 1.2-9
+
+  o correctly calculate outlier probabilities for gamma models
+
+  o changed name of testOutliers to testOutliersMix and outlierProbs to outlierProbsMix, with the old names to be removed in a future update
+
+  o changed vignette from pdf to html, and use tidyverse and ggplot in examples
+  
 Changes in robmixglm version 1.2-8
 
   o change default number of cores in fit to half physical cores

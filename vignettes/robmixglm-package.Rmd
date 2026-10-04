@@ -1,0 +1,381 @@
+---
+title: "robmixglm: An R Package for Robust Analysis Based on Mixtures"
+author: "Ken J. Beath, Macquarie University"
+date: "`r format(Sys.time(), '%B %d, %Y')`"
+output:
+  bookdown::html_document2:
+    base_format: rmarkdown::html_vignette
+bibliography:  robmixglm-package.bib
+vignette: >
+  %\VignetteIndexEntry{robmixglm: An R Package for Robust Analysis Based on Mixtures}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r include = FALSE}
+knitr::opts_chunk$set(
+  fig.width = 6,
+  fig.height = 4,
+  collapse = TRUE,
+  comment = "#>")
+options(prompt = "R> ", continue = "+  ", width = 70, useFancyQuotes = FALSE)
+library(robmixglm)
+library(tidyverse)
+library(kableExtra)
+library(lattice)
+library(ggplot2)
+library(gtsummary)
+set.seed(12345)
+```
+
+## Introduction
+
+This is an updated version of the paper from the Journal of Statistical Software. It includes changes to use **tidyverse** and **ggplot2** in the examples.
+
+A common problem in statistics is that some observations, known as outliers, are unusual for the parametric model used and may result in inaccurate parameter estimates as these observations are given excessive weighting. A simple method is to remove the outliers, but this has the effect of biasing the standard errors downwards, as this method may remove observations that are only slightly unusual, but not in fact incorrect, resulting in a reduction in the estimated error variance. A better method is to down weight observations based on their influence [@Hampel1986], for example using the residuals, and this has been applied to a large number of models. A method for generalised linear models (GLM) is described in @Cantoni2001 and @Cantoni2004, which also incorporates an additional weighting to reduce the influence of high leverage points.
+
+An alternative method of performing robust model fitting is to use a heavy-tailed distribution, as this will allow for outlier observations, giving the advantage of allowing likelihood based inference with an associated increase in efficiency. An addditional advantage occurs when the parameters of the distribution describing the shape are estimated, as this avoids the need for prespecified tuning parameters.  An early Bayesian approach for linear models was to use a mixture of normals [@BoxGEPandTiao1968,@Abraham1978] with a pre-specified proportion of outliers. @Aitkin1980 showed how models for mixtures of standard and outlier observations can be fitted using the EM algorithm, with a model allowing the mean to vary between the two groups. [@Lange1989a] used a $t$ distribution in place of a normal distribution, allowing for the degree of contamination by including the degrees of freedom $\nu$ as a parameter. @Lange1993 compared a number of error distributions including the $t$-distribution and mixture of normals (contaminated normal) on a number of datasets. While the $t$-distribution methods have the advantage of a lower number of parameters required, the mixture based methods have the advantage of greater flexibility and allowing for the identification of outliers.
+
+The mixture based approach is difficult for most generalised linear models @McCullagh1989, as the scale parameter is fixed.  @Beath2017a extended the mixture based approach to generalized linear models by modifying the outlier class to include in the linear predictor an additional normally distributed random effect, which is therefore an overdispersed generalised linear model as described by @Aitkin1996. For distributions which have an estimated scale parameter, for example the negative binomial and normal, the outlier distribution can be specified using a different scale parameter for the standard and outlier components. The **robmixglm** package in **R** [@R2021] was developed to fit these models and is available at https://CRAN.R-project.org/package=robmixglm.
+
+An advantage of the mixture-based approach is that it is model-based, and so standard likelihood procedures may be used. An example of this is model selection, where it is required to reduce the number of predictors to the minimum required to adequately fit the data. This may be performed simply for reasons of parsinonomy, as a simpler model will be easier to understand. It also has the advantage of removing some covariates that are highly correlated. It does have the disadvantage that it may produce a spurious improvement in fit, especially when the number of covariates is large compared to number of observations. There are a number of ways of avoiding this problem, for example dividing the data into training and validation data sets. For a general introduction see @James2013 (Chapter 6).
+Section 3.4.5 of @Heritier2009 describe robust AIC and robust Mallow's $C_p$, however these have not been extended to generalized linear models. For robust genearalized linear models the only published method is that of @Cantoni2001 which uses a robust quasi-deviance. This can then be used to compare models with and without a given predictor, and a stepwise procedure is then performed to obtain the final model. This has the disadvantage that there is no penalty for increasing number of predictors in the model.
+
+The combination of the robust mixture method and packages for model selection allow the use of two main methods: complete subset regression and step wise regression. In complete subset regression models are fitted for all possible subsets of the covariates, then based on some fitting criteria the best is chosen. This has the disadvantage of possibly long execution time, but guaranteeing that the best fitting subset is found. For stepwise regression, starting with a specified model, models of greater or lesser complexity are fitted, with models varying by only one covariate at each step. The best model based on a fitting criteria is chosen and the process repeated. If backward then only smaller models are allowed, for forward larger models and forward/backward both. The disadvantage of this method is that it may not find the best model, but it may be considerably faster.
+
+There are two other packages available in **R** for robust generalised linear models, both based on influence functions. The function **glmRob** using routines from Chapter 10 of @Marazzi1993 and methods in @Kunsch1989 in package **robust** is restricted to binomial and Poisson models, and the function **glmrob** [@Cantoni2004] in package **robustbase** uses the method described in @Cantoni2001.
+
+The remainder of this paper is organised as follows: Section 2 describes the theory for the models, Section 3 describes the functions, Section 4 contains examples and Section 5 a summary.
+
+
+## Model
+
+### Robust Mixture Model
+
+Package **robmixglm** implements the method of @Beath2017a. This assumes that data consists of a mixture of two types of observations: standard and outlier, where the standard group consists of subjects from a standard generalised linear model (GLM). The outlier group may be constructed in either of two ways:
+
+* They are from an overdispersed generalised linear model as described by @Aitkin1996, obtained by incorporating a normally distributed random effect into the linear predictor.
+* For distributions, for example gaussian and negative binomial, where the overdispersion is determined by a scale parameter, the outlier group has greater dispersion through choice of a different scale parameter than the standard group.
+
+The basis of a generalised linear model is that the distribution of the data $Y_i$, is from the linear exponential family. The relationship between the conditional mean $\mu_i=E\left[y_i|x_i\right]$ and the covariates is through the link function $g\left(\mu_i\right)=\mathbf{x}_i^T\beta$ [p. 27, @McCullagh1989], where $\mathbf{x}_i$ is a vector of covariates for observation $i$ with the first element $1$ corresponding to the intercept, and $\mathbf{x}_i^T\beta$ is referred to as the linear predictor. The overdispersed model described by @Aitkin1996 is constructed by including an individual level random effect. For the robust model with class $c_i=1$ for standard and $c_i=2$ for outliers, and the normally distributed random effect $\lambda_i \sim N\left(0,\tau^2\right)$, the link function is
+$$
+\begin{align*}
+g\left(\mu_i|c_i,\lambda_i\right)&=
+\begin{cases}
+\mathbf{x}_i^T\beta,&c_i=1\\
+\mathbf{x}_i^T\beta+\lambda_i,&c_i=2
+\end{cases}
+\end{align*}
+$$
+  with the proportion of standard observations and outliers $\pi_1$, $\pi_2$ respectively, where $\pi_1+\pi_2=1$ and these are assumed constant over $\mathbf{x}_i$.
+Estimates of the parameters are obtained through a GEM algorithm, with the marginal likelihood for the outlier class obtained by integration over the random effect using Gauss-Hermite quadrature. One advantage of the model is that it is not restricted to GLMs, but can be applied to any model with a linear predictor.
+
+### Outlier Probability
+
+Identification of outliers can be performed using the posterior probability of membership of the outlier class. Given an observed outcome $y_{i}$ then $f_1\left(y_{i}\right)$ and $f_2\left(y_{i}\right)$ are the values of the density functions for the standard and outlier points respectively, evaluated at the maximum likelihood estimates. Then the probability that the subject is in class $2$, the outlier class, is Section 2.8.1 of @McLachlan2000.
+
+$$
+\begin{align*}
+P\left(c_i=2| y_i\right)&=\frac{ \hat{\pi}_2 f_2\left(y_i \right)}{ \hat{\pi}_1 f_1\left(y_i\right)+\hat{\pi}_2 f_2\left(y_i\right)}\\
+\end{align*}
+$$
+
+### Outlier Test
+  
+  As the method is likelihood based a test can be performed for the presence of outliers, equivalent to a test that the proportion of outliers is zero, that is $\pi_2=0$. A difficulty with this test is that the null hypothesis is for a parameter on the edge of the parameter space, so that the likelhood ratio test no longer has the asymptotic chi-square distribution under the null hypothesis. This requires that the null distribution is simulated, known as the Bootstrap Likelihood Ratio Test (BLRT) [@McLachlan1987] or equivalently a parametric bootstrap [Section 4.2, @Davison1997]. The observed test statistic is then compared to the simulated distribution to obtain the *p*-value for the test.
+
+An alternative to the BLRT is to use an information criteria, which has the advantage of being much faster but is not as reliable as the BLRT. The basis of an information criteria is a function of the log likelihood penalised by the number of parameters in the model. Two information criteria [Section 6.8, @McLachlan2000] are available; Akaike's Information Criteria (AIC) where $AIC=-2LL+2n_{par}$ and Bayesian Information Criteria (BIC) where $BIC=2LL+\log\left(n_{obs}\right)n_{par}$, where $LL$ is the log likelihood for the fitted model, $n_{par}$ is the number of parameters in the model and $n_{obs}$ is the number of observations. Of the two, BIC has been preferred by a number of authors, for example @Fraley1998, for determining the number of components in a mixture model.
+
+## Description of the functions
+
+The basic function is **robmixglm(formula,family,offset,data)** where the parameters have the same meaning as for the **glm** function. The parameter **family** is a string describing the error distribution and link for the generalised linear model. Valid families are shown in Table \@ref(tab:family).
+
+```{r include=FALSE}
+thetable <- data.frame(Family=c("gausssian","binomial","poisson","truncpoisson","gamma","nbinom"),
+        Distribution=c("gaussian or normal","binomial","Poisson","truncated Poisson","gamma",
+        "negative binomial"),
+        Link=c("identitly","logit","log","log","log","log"))
+```
+
+```{r family, echo = FALSE, results="asis", tab.cap="Families for robmixglm"}
+kable(thetable, format = "html")
+```
+
+
+
+Two main methods are supplied: **outlierProbsMix**, which extracts the posterior probabilities of being an outlier and has an associated **plot** method, and **outlierTestMix**, which performs a BLRT for the presence of outliers.
+
+
+## Examples
+
+### Brain versus Body Weigh
+
+This data gives the average brain and body weights for 28 land animals [@Rousseeuw1987] which was obtained from the **MASS** package. Of interest is to find if there is a relationship between brain and body mass and any deviations from this relationship. Given the right skewness of the data, it is first log-transformed for both variables.
+```{r }
+library("MASS")
+data(Animals)
+Animals <- Animals %>%
+  dplyr::mutate(logbrain = log(brain), logbody = log(body))
+```
+
+First is fitted a standard linear model, and then the robust model. If AIC or BIC are to be used to compare the models, then it is important to use **glm** rather than **lm**, as otherwise the log likelihoods are not comparable with those from **robmixglm**, thus preventing comparison of AIC and BIC between the standard and robust models.
+
+```{r }
+brainbody.glm <- glm(logbrain~logbody, data=Animals)
+summary(brainbody.glm)
+brainbody.glm.rob <- robmixglm(logbrain~logbody, data=Animals)
+summary(brainbody.glm.rob)
+```
+
+
+The robust model estimates that there are about `r round(100.0*summary(brainbody.glm.rob)$coefficients[3,1],0)` \% outliers. There is a large decrease in $s^2$ for the robust model, decreasing from `r round(summary(brainbody.glm)$dispersion,2)` down to `r round(summary(brainbody.glm.rob)$coefficients[4,1],2)` showing the effect of reducing the influence of the outliers. The coefficient **Sigma-sq Out.** gives the error variance for the outlier group, and is much higher than for the standard group. The lines for each fitted model can then be plotted using the **abline** function as shown in Figure \@ref(fig:brainbodyfittedplot). An alternative method is to use the **predict** method, which allows the predictions to be further transformed.
+
+```{r brainbodyfittedplot, fig.cap="Observed and Fitted for Brain Data for Standard and Robust Models"}
+my_lines <- data.frame(
+  intercept = c(coef(brainbody.glm)[1], coef(brainbody.glm.rob)[1]),
+  slope = c(coef(brainbody.glm)[2], coef(brainbody.glm.rob)[2]),
+  line_name = c("Standard", "Robust")
+)
+
+ggplot(data = Animals, mapping = aes(x = logbody, y = logbrain)) +
+  geom_point() +
+  geom_abline(data = my_lines, aes(intercept = intercept, slope = slope, color = line_name),
+      linewidth = 1) +
+  scale_color_manual(name = "Model", values = c("Standard" = "red", "Robust" = "green"))
+```
+
+  
+As a rough guide to which is the appropriate model we can compare AIC and BIC for the two models, which can be extracted as follows using the standard **AIC** and **BIC** functions.
+
+```{r }
+aitable <- data.frame(Model=c("Standard", "Robust"),
+     AIC=c(AIC(brainbody.glm), AIC(brainbody.glm.rob)),
+     BIC=c(BIC(brainbody.glm), BIC(brainbody.glm.rob)))
+kable(aitable, format="html", digits=1)
+```
+
+This shows clearly the better fit of the robust model with lower AIC and BIC. The presence of outliers can also be tested using **outlierTestMix**,  performing a bootstrap likelihood ratio test (BLRT), for a more accurate result than comparing information criteria.
+
+```{r }
+outlierTestMix(brainbody.glm.rob)
+```
+
+  This again shows strong evidence that there are outliers present. The outlying observations can be identified by plotting the posterior probability, obtained using **outlierProbsMix**, of being in the outlier class against the observation, as shown in Figure \@ref(fig:brainbodyoutlierplot). As a simple guide, the outliers can be identified as having an outlier probability of greater than 0.9.
+  
+```{r  brainbodyoutlierplot, fig.cap="Outlier Probabilities for Brain Data."}
+plot(outlierProbsMix(brainbody.glm.rob))
+```
+  
+It appears that there are 5 outliers, with a possible other. These can be printed out as follows.
+
+```{r outliers, tab.cap="Outliers for Brain Body Model"}
+outliers <- Animals %>%
+      dplyr::mutate(outlierprob=as.numeric(outlierProbsMix(brainbody.glm.rob))) %>%
+      filter(outlierprob > 0.9)
+kable(outliers, format="html", digits=c(0,0,2,2,4),
+      col.names=c("Body","Brain","log(Body)","log(Brain)", "Outlier prob"))
+```
+    
+The 3 outliers on the lower side of the fitted line are dinosaurs, as would be expected as reptiles usually have smaller brains, and on the high side are humans, rhesus monkeys and possibly chimpanzees, again as would be expected as apes have relatively larger brains. We can produce plots of residual versus fitted for both the the standard and robust models, as shown in Figure \@ref(fig:brainbodyresidualversusfitted). With the robust model the outliers are much more obvious. This comes about for two reasons: with the robust model the estimate of the residual variance is much lower and the fitted line is no longer dragged towards the outliers, so the residuals are increased.
+    
+```{r brainbodyresidualversusfitted, fig.cap="Residual versus Fitted for Brain Body Data."}
+resdata <- data.frame(
+    model=factor(rep(1:2, each=dim(Animals)[1]),
+                   labels=c("Standard", "Robust")),
+    fitted=c(fitted(brainbody.glm), fitted(brainbody.glm.rob)),
+      residual=c(residuals(brainbody.glm), residuals(brainbody.glm.rob)))
+ggplot(data = resdata, mapping = aes(x = fitted, y = residual)) +
+  geom_point() +
+  facet_grid(cols = vars(model))
+```
+
+
+### Carrot Damage
+
+  This is analysis of an experiment to determine the dose-response for insecticide on carrot fly on carrots conducted at the National Vegetable Research Station [@Phelps1982], with the analysis presented in that paper including an offset which will be ignored here. This data has been previosly analysed in @Williams1987 and @McCullagh1989, to demonstrate techniques for detecting outliers. Of interest is that observation 14 appears to be an outlier. We obtain the data from the **robustbase** package.
+```{r }
+library(robustbase)
+data(carrots)
+```
+
+Fitting the two models:
+```{r }
+carrots.glm <- glm(cbind(success, total-success)~logdose+factor(block),
+                   family="binomial", data=carrots)
+summary(carrots.glm)
+carrots.robustmix <- robmixglm(cbind(success, total-success)~logdose+
+                                 factor(block), family="binomial", data=carrots)
+summary(carrots.robustmix)
+```
+
+  There are an estimated `r round(100.0*summary(carrots.robustmix)$coefficients[5,1],0)`\% outliers. The value of $\tau^2$ of `r round(summary(carrots.robustmix)$coefficients[6,1],2)` indicates the additional overdispersion required to fit the outlier observations. To compare the results of the two models we can extract the coefficients and place them in a table, with standard model results prefixed with "Std" and robust model results with "Rob":
+
+```{r }
+carrot.results <- data.frame(
+  StdEst=format(summary(carrots.glm)$coefficients[1:4, 1],
+                digits=4),
+  StdSE=format(summary(carrots.glm)$coefficients[1:4, 2],
+               digits=4),
+  Stdp=format.pval(summary(carrots.glm)$coefficients[1:4, 4],
+                   digits=4, eps=0.0001),
+  RobEst=format(summary(carrots.robustmix)$coefficients[1:4, 1],
+                digits=4),
+  RobSE=format(summary(carrots.robustmix)$coefficients[1:4, 2],
+               digits=4),
+  Robp=format.pval(summary(carrots.robustmix)$coefficients[1:4, 4],
+                   digits=4, eps=0.0001))
+kable(carrot.results, format="html")
+```
+
+  Test for outliers and plot the outlier probabilities in Figure \@ref(fig:carrotsoutlierplot). This shows clearly that observation 14, with an outlier probability close to one, is the only outlier. However there are a number of observations that have at least a moderate probability of being an outlier.
+
+```{r }
+outlierTestMix(carrots.robustmix)
+```
+
+```{r  carrotsoutlierplot,  fig.cap="Outlier Probabilities for Carrot Data."}
+plot(outlierProbsMix(carrots.robustmix))
+```
+
+   A plot incorporating the observed and predicted for both models is shown in Figure \@ref(fig:carrotsfitted). This shows clearly again that observation 14 is the outlier observation. Observed versus fitted is shown in Figure \@ref(fig:carrotsobsvsfitted), and shows the outlier and also that there is no systematic variation.
+
+```{r  carrotsfitted,  fig.cap="Fitted by Model for Carrots Data."}
+carrots %>%
+  dplyr::mutate(Observation = dplyr::row_number(),
+                Standard = fitted(carrots.glm),
+                Robust = fitted(carrots.robustmix),
+                Observed = success/total) %>%
+  dplyr::select(c(Observation, Standard, Robust, Observed)) %>%
+  pivot_longer(-Observation, names_to="Type", values_to="prop") %>%
+   ggplot(aes(x = Observation, y = prop, col = Type)) +
+  geom_point() +
+  xlab("Observation") +
+  ylab("Proportion")
+```
+
+```{r  carrotsobsvsfitted, fig.cap="Observed versus Fitted for Carrots Data."}
+carrots %>%
+  dplyr::mutate(fitted = fitted(carrots.robustmix), observed = success/total) %>%
+  ggplot(mapping = aes(x = fitted, y = observed)) +
+  geom_point() +
+  geom_abline(col="red")  +
+  xlab("Fitted Proportion") +
+  ylab("Observed Proportion")
+```
+
+### Diabetes Data
+
+This data is from a study of the prevalence of cardiovascular risk factors such as obesity and diabetes for African Americans [@Willems19997], and were obtained from @Heritier2009 and are included in the **robmixglm** package.  Data was available for 403 subjects screened for diabetes, reduced to 372 after removal of cases with missing data. The aim is to predict the level of glycosated haemoglobin from the risk factors. It actually appears that a gamma model with log link is better, but I have kept the gaussian to be consistent with @Heritier2009, but will then repeat the analysis with a Gamma distribution and log link. It is also quite likely that there is another predictor that is missing from the analysis. Fit the standard and robust models:
+
+```{r }
+diabdata.glm <- glm(glyhb~age+gender+bmi+waisthip+frame,
+                    data=diabdata)
+summary(diabdata.glm)
+diabdata.robustmix <- robmixglm(glyhb~age+gender+bmi+waisthip+frame,
+                                data=diabdata)
+summary(diabdata.robustmix)
+```
+<!-- We can produce publication ready tables as -->
+
+<!-- ```{r } -->
+
+<!-- # diabdata.robustmix %>% -->
+<!-- #   tbl_regression(exponentiate = TRUE, add_estimate_to_reference_rows = TRUE) %>% -->
+<!-- #   add_global_p() -->
+
+<!-- ``` -->
+
+Test for outliers and plot the outlier probabilities in Figure \@ref(fig:diabdataoutlierplot), which shows a large number of outliers. This may indicate there is a problem with the model used, possibly an incorrect distribution.
+
+```{r}
+outlierTestMix(diabdata.robustmix)
+```
+
+```{r  diabdataoutlierplot, fig.cap="Outlier Probabilities for Diabetes Data."}
+plot(outlierProbsMix(diabdata.robustmix))
+```
+
+The observed versus fitted may be plotted as in Figure \@ref(fig:diabdataoobsvpred). This shows a generally increasing variance at higher predicted values and an increase in the mean, suggesting that there may be alternative models, for example a gamma with log link, which may be a better fit to the data.
+
+```{r  diabdataoobsvpred, fig.cap="Observed versus Predicted for Diabetes Data"}
+plot(fitted(diabdata.robustmix), diabdata$glyhb)
+abline(a=0.0, b=1.0, col="red")
+```
+
+The **step** function, a simplified version of **stepAIC** described in @Venables1999, allows for stepwise model selection based on the AIC statistic. Here we use the default setting of both backward and forward selection, and start with the full model. The first parameter of the function defines the models to be fitted, and the second defines the terms from which the model is selected. Further parameters are defined in the documentation for **step**. The function produces a large amount of output, giving the AIC and change for each fitted model, so this has been removed using the **trace=FALSE** parameter. The final model fit is then printed. Note that in practice we would embed this code within a more rigorous analysis, using either a training and test dataset or cross-validation.
+
+```{r }
+library("MASS")
+diabdata.step <- step(diabdata.robustmix,
+         glyhb ~ age + gender + bmi + waisthip + frame,
+        trace = FALSE)
+summary(diabdata.step)
+```
+
+The resulting model has excluded **frame** and **gender**, and resulted in an increased level of evidence for **bmi** as a consequence of the correlation between it and **frame**.
+
+<!-- We can produce publication ready tables as -->
+
+<!-- ```{r } -->
+
+<!-- # diabdata.step %>% -->
+<!-- #   tbl_regression(exponentiate = TRUE, add_estimate_to_reference_rows = TRUE) %>% -->
+<!-- #   add_global_p() -->
+
+<!-- ``` -->
+
+We will repeat the analysis using a Gamma Distribution and log link.
+
+```{r }
+diabdata.glm2 <- glm(glyhb~age+gender+bmi+waisthip+frame,
+                    family = Gamma(link=log), data=diabdata)
+summary(diabdata.glm2)
+diabdata.robustmix2 <- robmixglm(glyhb~age+gender+bmi+waisthip+frame,
+                                family="gamma", data=diabdata)
+summary(diabdata.robustmix2)
+```
+
+Test for outliers and plot the outlier probabilities in Figure \@ref(fig:diabdataoutlierplot2), which shows a large number of outliers. This may indicate there is a problem with the model used, possibly an incorrect distribution.
+
+```{r}
+outlierTestMix(diabdata.robustmix2)
+```
+
+```{r  diabdataoutlierplot2, fig.cap="Outlier Probabilities for Diabetes Data."}
+plot(outlierProbsMix(diabdata.robustmix2))
+```
+
+The observed versus fitted may be plotted as in Figure \@ref(fig:diabdataoobsvpred). This shows a generally increasing variance at higher predicted values and an increase in the mean, suggesting that there may be alternative models, for example a gamma with log link, which may be a better fit to the data.
+
+```{r  diabdataoobsvpred2, fig.cap="Observed versus Predicted for Diabetes Data"}
+plot(fitted(diabdata.robustmix2), diabdata$glyhb)
+abline(a=0.0, b=1.0, col="red")
+```
+
+We repeat the analysis using the **step** function.
+```{r }
+library("MASS")
+diabdata.step2 <- step(diabdata.robustmix2,
+         glyhb ~ age + gender + bmi + waisthip + frame,
+        trace = FALSE)
+summary(diabdata.step2)
+```
+
+The resulting model has excluded **gender**, and resulted in an increased level of evidence for **bmi** as a consequence of the correlation between it and **frame**.
+
+<!-- Again we can produce publication ready tables as -->
+
+<!-- ```{r } -->
+
+<!-- # diabdata.step2 %>% -->
+<!-- #   tbl_regression(exponentiate = TRUE, add_estimate_to_reference_rows = TRUE) %>% -->
+<!-- #   add_global_p() -->
+
+<!-- ``` -->
+
+## Summary
+                
+It has been shown how the **robmixglm** package may be used to fit generalized linear models accounting for outliers. Features of the package allow for identification of outliers and a test for the presence of outliers, as a consequence of the use of a probability model, thus allowing construction of a likelihood function. Further example showed how standard **R** functions can be used to perform model selection. As the method allows for robustness with and model with a linear predictor then it is possible to extend the range of models fitted. One example is the zero truncated Poisson which is included in the package.
+                   
+## References
+
